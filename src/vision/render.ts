@@ -1,9 +1,13 @@
-import { DrawingUtils, PoseLandmarker } from "@mediapipe/tasks-vision";
+import { PoseLandmarker } from "@mediapipe/tasks-vision";
+import { landmarkVisibility } from "./landmarks";
 import type { DetectedPose } from "./poseDetector";
 
-const ACCENT = "#7c6cf6";
-const BONE = "#ececf4";
-const VISIBLE_LANDMARK = 0.16;
+const ACCENT = "#7dffb3";
+const BONE = "#ffffff";
+
+function drawable(point: { x: number; y: number } | undefined): point is { x: number; y: number } {
+  return Boolean(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+}
 
 const NOSE = 0;
 const LEFT_EAR = 7;
@@ -11,17 +15,21 @@ const RIGHT_EAR = 8;
 
 const FACE_ONLY = new Set([1, 2, 3, 4, 5, 6, 9, 10]);
 
-let overlayUtils: DrawingUtils | null = null;
-
 export function drawPoseOverlay(
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
   pose: DetectedPose | null,
 ) {
-  if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    overlayUtils = null;
+  const nextWidth = video.videoWidth || Math.round(canvas.clientWidth);
+  const nextHeight = video.videoHeight || Math.round(canvas.clientHeight);
+
+  if (nextWidth > 0 && nextHeight > 0 && (canvas.width !== nextWidth || canvas.height !== nextHeight)) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+
+  if (canvas.width < 2 || canvas.height < 2) {
+    return;
   }
 
   const context = canvas.getContext("2d");
@@ -36,28 +44,64 @@ export function drawPoseOverlay(
     return;
   }
 
-  const visibleLandmarks = pose.landmarks.map((landmark) =>
-    (landmark.visibility ?? 0) >= VISIBLE_LANDMARK ? landmark : undefined,
-  );
-  const visibleConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
-    (connection) => visibleLandmarks[connection.start] && visibleLandmarks[connection.end],
-  );
+  const width = canvas.width;
+  const height = canvas.height;
+  const line = Math.max(5, width * 0.007);
 
-  overlayUtils ??= new DrawingUtils(context);
-  overlayUtils.drawConnectors(pose.landmarks, visibleConnections, {
-    color: ACCENT,
-    lineWidth: 4,
-  });
-  overlayUtils.drawLandmarks(
-    visibleLandmarks.filter((landmark): landmark is NonNullable<typeof landmark> =>
-      Boolean(landmark),
-    ),
-    {
-      color: BONE,
-      radius: 5,
-      fillColor: ACCENT,
-    },
-  );
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  for (const connection of PoseLandmarker.POSE_CONNECTIONS) {
+    if (FACE_ONLY.has(connection.start) || FACE_ONLY.has(connection.end)) {
+      continue;
+    }
+
+    const from = pose.landmarks[connection.start];
+    const to = pose.landmarks[connection.end];
+
+    if (!drawable(from) || !drawable(to)) {
+      continue;
+    }
+
+    context.strokeStyle = ACCENT;
+    context.lineWidth = line;
+    context.beginPath();
+    context.moveTo(from.x * width, from.y * height);
+    context.lineTo(to.x * width, to.y * height);
+    context.stroke();
+  }
+
+  for (let index = 11; index <= 32; index += 1) {
+    const point = pose.landmarks[index];
+
+    if (!drawable(point)) {
+      continue;
+    }
+
+    context.fillStyle = BONE;
+    context.beginPath();
+    context.arc(point.x * width, point.y * height, Math.max(2.2, line * 0.7), 0, Math.PI * 2);
+    context.fill();
+  }
+
+  const leftShoulder = pose.landmarks[11];
+  const rightShoulder = pose.landmarks[12];
+  const nose = pose.landmarks[0];
+
+  if (drawable(leftShoulder) && drawable(rightShoulder) && drawable(nose)) {
+    const neckX = ((leftShoulder.x + rightShoulder.x) / 2) * width;
+    const neckY = ((leftShoulder.y + rightShoulder.y) / 2) * height;
+    context.strokeStyle = ACCENT;
+    context.lineWidth = line;
+    context.beginPath();
+    context.moveTo(neckX, neckY);
+    context.lineTo(nose.x * width, nose.y * height);
+    context.stroke();
+    context.fillStyle = ACCENT;
+    context.beginPath();
+    context.arc(nose.x * width, nose.y * height, line * 2.1, 0, Math.PI * 2);
+    context.fill();
+  }
 }
 
 type Vec = { x: number; y: number };
@@ -95,7 +139,7 @@ function takePoint(
     point &&
     Number.isFinite(point.x) &&
     Number.isFinite(point.y) &&
-    (point.visibility ?? 1) >= MIN_VISIBILITY
+    landmarkVisibility(point) >= MIN_VISIBILITY
   ) {
     held[index] = { x: point.x, y: point.y, at: now };
     return { x: point.x, y: point.y };

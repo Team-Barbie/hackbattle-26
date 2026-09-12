@@ -3,8 +3,8 @@ import { isVisible, type DetectedPose, type LandmarkPoint } from "../../vision/p
 
 export type ShoulderRaiseState = "ARMS_DOWN" | "ARMS_UP";
 
-const ARMS_DOWN_ANGLE = 35;
-const ARMS_UP_ANGLE = 140;
+const ARMS_DOWN_ANGLE = 32;
+const ARMS_UP_ANGLE = 145;
 const CONFIDENCE_GAP = 0.15;
 
 type ArmReading = { angle: number | null; confidence: number };

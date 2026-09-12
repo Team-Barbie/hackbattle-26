@@ -68,6 +68,184 @@ body {
   letter-spacing: -0.04em;
 }
 
+.app-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.role-switch {
+  display: flex;
+  gap: 8px;
+}
+
+.role-switch button {
+  min-width: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--dim);
+  font-size: 0.82rem;
+}
+
+.role-switch button.is-selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.plan-board,
+.plan-editor {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.plan-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.plan-kicker,
+.plan-progress,
+.plan-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.plan-kicker {
+  margin-bottom: 4px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plan-progress {
+  margin-top: 4px;
+}
+
+.plan-list,
+.plan-draft {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-item,
+.plan-draft-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--track);
+}
+
+.plan-item.is-now {
+  border-color: var(--accent);
+  background: rgba(124, 108, 246, 0.12);
+}
+
+.plan-item.is-done {
+  opacity: 0.62;
+}
+
+.plan-item.is-queued {
+  opacity: 0.78;
+}
+
+.plan-index {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--raised);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.plan-item.is-now .plan-index {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.plan-name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.plan-status {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.plan-item.is-now .plan-status {
+  color: var(--accent-soft);
+}
+
+.plan-field,
+.plan-reps-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.plan-field input,
+.plan-draft-row select,
+.plan-reps-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+  color: #ececf4;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.plan-draft-row {
+  grid-template-columns: 32px minmax(0, 1fr) 88px auto;
+}
+
+.plan-draft-row button {
+  min-width: 0;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+}
+
+.plan-reps-field {
+  margin-top: 0;
+}
+
+.plan-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 /* Wireframe grid: camera + reps, then guide + feedback, then controls. */
 .stage {
   display: grid;
@@ -101,30 +279,6 @@ body {
 
 .control-bar {
   grid-area: controls;
-}
-
-.exercise-picker {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.exercise-picker select {
-  min-width: 210px;
-  padding: 11px 38px 11px 16px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--raised);
-  color: #ececf4;
-  font: inherit;
-  font-size: 0.85rem;
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .panel {
@@ -183,10 +337,12 @@ body {
 }
 
 .camera-video {
+  z-index: 1;
   background: var(--surface);
 }
 
 .pose-overlay {
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -510,17 +666,11 @@ button.step:hover:not(:disabled) {
       "controls";
   }
 
-  .control-bar button,
-  .exercise-picker {
+  .control-bar button {
     flex: 1 1 100%;
   }
 
-  .exercise-picker {
-    justify-content: space-between;
-  }
-
-  .exercise-picker select {
-    min-width: 0;
-    flex: 1;
+  .plan-draft-row {
+    grid-template-columns: 32px minmax(0, 1fr);
   }
 }
