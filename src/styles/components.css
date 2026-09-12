@@ -191,7 +191,7 @@
 }
 
 .card--accent {
-  border-color: rgba(59, 91, 219, 0.35);
+  border-color: rgba(243, 243, 241, 0.3);
   background:
     linear-gradient(160deg, var(--accent-tint), transparent 55%),
     var(--surface);

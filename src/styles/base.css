@@ -27,8 +27,20 @@ body {
   min-height: 100vh;
   background:
     radial-gradient(900px 520px at 8% -10%, var(--accent-tint), transparent 60%),
-    radial-gradient(700px 480px at 100% 0%, rgba(111, 150, 255, 0.08), transparent 60%),
+    radial-gradient(700px 480px at 100% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
     var(--bg);
+}
+
+/* Film-grain texture over the whole app - the signature surface treatment. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 h1,
