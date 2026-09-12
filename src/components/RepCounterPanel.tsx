@@ -1,9 +1,9 @@
-import type { SquatSession } from "../hooks/useSquatSession";
+import type { ExerciseSession } from "../hooks/useExerciseSession";
 
 const MIN_TARGET = 1;
 const MAX_TARGET = 50;
 
-export default function RepCounterPanel({ session }: { session: SquatSession }) {
+export default function RepCounterPanel({ session }: { session: ExerciseSession }) {
   const { reps, targetReps, setTargetReps } = session;
   const remaining = Math.max(0, targetReps - reps);
   const progress = targetReps > 0 ? Math.min(1, reps / targetReps) : 0;

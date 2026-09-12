@@ -3,10 +3,10 @@ import ControlBar from "./components/ControlBar";
 import FeedbackPanel from "./components/FeedbackPanel";
 import GuidePanel from "./components/GuidePanel";
 import RepCounterPanel from "./components/RepCounterPanel";
-import { useSquatSession } from "./hooks/useSquatSession";
+import { useExerciseSession } from "./hooks/useExerciseSession";
 
 export default function App() {
-  const session = useSquatSession();
+  const session = useExerciseSession();
 
   return (
     <div className="app">
@@ -18,7 +18,7 @@ export default function App() {
       <main className="stage">
         <CameraPanel session={session} />
         <RepCounterPanel session={session} />
-        <GuidePanel />
+        <GuidePanel session={session} />
         <FeedbackPanel session={session} />
         <ControlBar session={session} />
       </main>

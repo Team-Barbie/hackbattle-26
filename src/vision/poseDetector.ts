@@ -17,6 +17,8 @@ const LANDMARK_INDEX = {
   rightShoulder: 12,
   leftElbow: 13,
   rightElbow: 14,
+  leftWrist: 15,
+  rightWrist: 16,
   leftHip: 23,
   rightHip: 24,
   leftKnee: 25,
@@ -48,6 +50,8 @@ export type DetectedPose = {
   rightShoulder: LandmarkPoint;
   leftElbow: LandmarkPoint | null;
   rightElbow: LandmarkPoint | null;
+  leftWrist: LandmarkPoint | null;
+  rightWrist: LandmarkPoint | null;
   leftHip: LandmarkPoint | null;
   rightHip: LandmarkPoint | null;
   leftKnee: LandmarkPoint | null;
@@ -115,6 +119,8 @@ function mapDetectedPose(landmarks: NormalizedLandmark[]): DetectedPose | null {
     rightShoulder,
     leftElbow: toPoint(landmarks, "leftElbow"),
     rightElbow: toPoint(landmarks, "rightElbow"),
+    leftWrist: toPoint(landmarks, "leftWrist"),
+    rightWrist: toPoint(landmarks, "rightWrist"),
     leftHip: toPoint(landmarks, "leftHip"),
     rightHip: toPoint(landmarks, "rightHip"),
     leftKnee: toPoint(landmarks, "leftKnee"),

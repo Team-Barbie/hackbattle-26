@@ -1,6 +1,6 @@
-import type { SquatSession } from "../hooks/useSquatSession";
+import type { ExerciseSession } from "../hooks/useExerciseSession";
 
-function placeholderText(session: SquatSession): string {
+function placeholderText(session: ExerciseSession): string {
   if (session.status === "starting") {
     return "Starting camera…";
   }
@@ -12,7 +12,7 @@ function placeholderText(session: SquatSession): string {
   return "Camera is off — press Start camera";
 }
 
-export default function CameraPanel({ session }: { session: SquatSession }) {
+export default function CameraPanel({ session }: { session: ExerciseSession }) {
   const { isLive, tracking } = session;
 
   return (
