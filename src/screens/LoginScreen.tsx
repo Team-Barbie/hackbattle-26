@@ -1,47 +1,45 @@
 import { useState, type FormEvent } from "react";
-import Icon from "../components/Icon";
 
 type Props = {
-  therapistName: string;
   onLogin: (name: string) => void;
   onBack: () => void;
 };
 
-export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
+export default function LoginScreen({ onLogin, onBack }: Props) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const trimmed = name.trim();
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    const trimmed = name.trim();
 
-    if (trimmed) {
-      onLogin(trimmed);
+    if (!trimmed) {
+      return;
     }
+
+    onLogin(trimmed);
   }
 
   return (
-    <div className="screen screen--narrow screen--centered">
-      <div className="screen__top">
-        <button type="button" className="back-link" onClick={onBack}>
-          <Icon name="back" />
-          Back
-        </button>
-      </div>
+    <div className="auth-shell">
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Back
+      </button>
 
-      <div className="page__header">
-        <h1>Patient sign-in</h1>
-        <p className="lede">Enter your name to open the plan from {therapistName}.</p>
+      <div className="auth-copy">
+        <p className="app-eyebrow">Patient sign-in</p>
+        <h1>Welcome back</h1>
+        <p className="auth-subtitle">Enter your name to continue your program.</p>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label className="field">
-          <span>Name</span>
+          <span>Your name</span>
           <input
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            autoComplete="name"
+            placeholder="Jamie Rivera"
             autoFocus
             required
           />
@@ -55,11 +53,11 @@ export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
             type="text"
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            autoComplete="off"
+            placeholder="e.g. RH-4821"
           />
         </label>
 
-        <button type="submit" className="btn btn--lg btn--block" disabled={!trimmed}>
+        <button type="submit" className="block" disabled={!name.trim()}>
           Continue
         </button>
       </form>

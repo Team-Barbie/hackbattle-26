@@ -15,8 +15,9 @@ export type SquatCounter = {
 };
 
 /**
- * A rep lands on the DOWN → UP edge only. The state thresholds already use
- * hysteresis, so a second timed hold rejects normal continuous repetitions.
+ * A rep lands on the DOWN → UP edge only. Squat state hysteresis handles
+ * landmark flicker, so requiring an additional bottom hold would reject normal,
+ * continuous reps after the already-smoothed pose crosses the depth threshold.
  */
 export function createSquatCounter(): SquatCounter {
   let previous: SquatState | null = null;

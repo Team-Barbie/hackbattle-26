@@ -1,6 +1,5 @@
 import { calculateAngle } from "../../biomechanics/angles";
 import { isVisible, type DetectedPose, type LandmarkPoint } from "../../vision/poseDetector";
-import { exerciseName, type ExerciseId } from "../exerciseCatalog";
 
 const STORAGE_KEY = "physioloop.reference-exercise.v1";
 const MIN_COMPARABLE_FEATURES = 4;
@@ -126,12 +125,4 @@ export function loadReferenceExercise(): ReferenceExercise | null {
 
 export function clearReferenceExercise(): void {
   localStorage.removeItem(STORAGE_KEY);
-}
-
-export function displayExerciseName(exerciseId: ExerciseId): string {
-  if (exerciseId !== "custom") {
-    return exerciseName(exerciseId);
-  }
-
-  return loadReferenceExercise()?.name || exerciseName(exerciseId);
 }

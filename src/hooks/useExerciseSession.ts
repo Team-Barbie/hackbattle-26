@@ -169,12 +169,7 @@ function thighReadingsFromPose(pose: DetectedPose | null) {
   };
 }
 
-export type ExerciseSessionOptions = {
-  /** Prescription to run. Falls back to the default plan when empty or omitted. */
-  plan?: Prescription;
-};
-
-export function useExerciseSession(options: ExerciseSessionOptions = {}) {
+export function useExerciseSession() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const figureRef = useRef<HTMLCanvasElement>(null);
@@ -214,15 +209,12 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   const [videoAspect, setVideoAspect] = useState("16 / 9");
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [plan, setPlan] = useState<Prescription>(() =>
-    options.plan && options.plan.steps.length > 0 ? options.plan : DEFAULT_PRESCRIPTION,
-  );
+  const [plan, setPlan] = useState<Prescription>(DEFAULT_PRESCRIPTION);
   const [stepIndex, setStepIndex] = useState(0);
   const [referenceExercise, setReferenceExercise] = useState<ReferenceExercise | null>(() =>
     loadReferenceExercise(),
   );
   const referenceExerciseRef = useRef(referenceExercise);
-  const [pendingReference, setPendingReference] = useState<ReferenceExercise | null>(null);
   const [recordingReference, setRecordingReference] = useState(false);
   const [referenceFrameCount, setReferenceFrameCount] = useState(0);
   const [referenceProgress, setReferenceProgress] = useState(0);
@@ -365,7 +357,6 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
 
   const restartPlan = useCallback(() => {
     resetSession();
-    setPendingReference(null);
     setStepIndex(0);
     lastSpokenCueRef.current = "";
     lastSpokenRepRef.current = 0;
@@ -400,58 +391,32 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
 
     const reference: ReferenceExercise = {
       version: 1,
-      name: "",
+      name: "Custom recorded exercise",
       recordedAt: new Date().toISOString(),
       durationMs: (frames.length - 1) * REFERENCE_CAPTURE_INTERVAL_MS,
       frames: frames.map((frame) => [...frame]),
     };
 
-    setPendingReference(reference);
-    setReferenceMessage(
-      `Recording ready: ${(reference.durationMs / 1000).toFixed(1)} seconds. Name it to publish it.`,
-    );
-    setMovementState("NO_REFERENCE");
-  }, []);
-
-  const publishReference = useCallback((name: string) => {
-    const cleanName = name.trim();
-
-    if (!pendingReference || !cleanName) {
-      return false;
-    }
-
-    const reference: ReferenceExercise = { ...pendingReference, name: cleanName };
-
     try {
       saveReferenceExercise(reference);
       referenceExerciseRef.current = reference;
       setReferenceExercise(reference);
-      setPendingReference(null);
       referenceProgressRef.current = 0;
       awaitingReferenceRestartRef.current = false;
       setReferenceProgress(0);
-      setReferenceMessage(`${cleanName} is ready to add to the patient plan.`);
+      setReferenceMessage(
+        `Reference saved: ${(reference.durationMs / 1000).toFixed(1)} seconds. Repeat it now.`,
+      );
       setMovementState("ADJUST");
-      return true;
     } catch {
-      setReferenceMessage("The exercise could not be saved in this browser.");
-      return false;
+      setReferenceMessage("The reference could not be saved in this browser.");
     }
-  }, [pendingReference]);
-
-  const discardPendingReference = useCallback(() => {
-    setPendingReference(null);
-    recordedFramesRef.current = [];
-    setReferenceFrameCount(0);
-    setReferenceMessage("Recording discarded. You can record it again.");
-    setMovementState(referenceExerciseRef.current ? "ADJUST" : "NO_REFERENCE");
   }, []);
 
   const clearReference = useCallback(() => {
     clearReferenceExercise();
     referenceExerciseRef.current = null;
     setReferenceExercise(null);
-    setPendingReference(null);
     recordedFramesRef.current = [];
     referenceProgressRef.current = 0;
     awaitingReferenceRestartRef.current = false;
@@ -573,8 +538,11 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
             }
           }
 
-          // Compare against the preceding visible frame. Otherwise one false
-          // jump freezes the baseline and makes every later frame look jumped.
+          // Always refresh the comparison baseline on a visible frame, jumped or not.
+          // Otherwise one flagged frame freezes the reference pose while the person
+          // keeps moving, so every later frame drifts further from it and reads as
+          // "still jumping" until the grace period lapses and wipes the whole
+          // multi-second stability timer.
           lastStablePoseRef.current = pose;
         } else if (lastFullBodyAt === 0 || now - lastFullBodyAt > FULL_BODY_GRACE_MS) {
           validBodySince = 0;
@@ -603,6 +571,9 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
           rawMetric = bicepCurlDegrees(analysisPose);
         }
 
+        // MediaPipe landmarks are already One Euro-smoothed. A second rolling
+        // average made the squat metric lag behind fast direction changes and
+        // could stop a genuine bottom position from crossing the DOWN threshold.
         let metric = exerciseTracking
           ? exerciseId === "squat"
             ? rawMetric
@@ -936,7 +907,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   const metricDisplay =
     exerciseId === "custom"
       ? movementMetric === null
-        ? "—"
+        ? "·"
         : `${Math.round(movementMetric)}%`
       : exerciseId === "squat" || exerciseId === "knee-raise"
       ? formatDegrees(thighAngleDegrees(movementMetric))
@@ -963,15 +934,12 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     loadPrescription,
     restartPlan,
     referenceExercise,
-    pendingReference,
     recordingReference,
     referenceFrameCount,
     referenceProgress,
     referenceMessage,
     startReferenceRecording,
     stopReferenceRecording,
-    publishReference,
-    discardPendingReference,
     clearReference,
     tracking,
     movementState,
