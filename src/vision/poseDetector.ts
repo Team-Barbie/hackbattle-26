@@ -4,9 +4,9 @@ import {
   type NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
 
-const TASKS_VISION_VERSION = "1.0.1";
-const WASM_ROOT = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TASKS_VISION_VERSION}/wasm`;
-const MODEL_ASSET_PATH =
+const WASM_ROOT = `${import.meta.env.BASE_URL}mediapipe/wasm`;
+const LOCAL_MODEL_PATH = `${import.meta.env.BASE_URL}models/pose_landmarker_lite.task`;
+const REMOTE_MODEL_PATH =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
 const LANDMARK_INDEX = {
@@ -30,6 +30,7 @@ export type LandmarkPoint = {
 };
 
 export type DetectedPose = {
+  landmarks: NormalizedLandmark[];
   leftShoulder: LandmarkPoint;
   rightShoulder: LandmarkPoint;
   leftElbow: LandmarkPoint;
@@ -44,10 +45,11 @@ export type DetectedPose = {
 
 export type PoseDetector = {
   detectPose: (videoFrame: HTMLVideoElement) => DetectedPose | null;
-  close: () => void;
 };
 
 type NamedLandmark = keyof typeof LANDMARK_INDEX;
+
+let detectorPromise: Promise<PoseDetector> | null = null;
 
 function toPoint(
   landmarks: NormalizedLandmark[],
@@ -95,6 +97,7 @@ function mapDetectedPose(landmarks: NormalizedLandmark[]): DetectedPose | null {
   }
 
   return {
+    landmarks,
     leftShoulder,
     rightShoulder,
     leftElbow,
@@ -122,45 +125,68 @@ export function formatPoseLog(pose: DetectedPose): string {
   ].join(" | ");
 }
 
-export async function createPoseDetector(): Promise<PoseDetector> {
+async function createLandmarker(modelAssetPath: string): Promise<PoseLandmarker> {
   const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
-  const landmarker = await PoseLandmarker.createFromOptions(vision, {
+
+  return PoseLandmarker.createFromOptions(vision, {
     baseOptions: {
-      modelAssetPath: MODEL_ASSET_PATH,
+      modelAssetPath,
+      delegate: "CPU",
     },
     runningMode: "VIDEO",
     numPoses: 1,
   });
+}
 
-  let lastVideoTime = -1;
+async function createPoseDetector(): Promise<PoseDetector> {
+  let landmarker: PoseLandmarker;
+
+  try {
+    landmarker = await createLandmarker(LOCAL_MODEL_PATH);
+  } catch (localError) {
+    console.warn("[pose] local model failed, trying remote model", localError);
+    landmarker = await createLandmarker(REMOTE_MODEL_PATH);
+  }
+
+  let lastTimestamp = 0;
   let lastPose: DetectedPose | null = null;
 
   return {
     detectPose(videoFrame: HTMLVideoElement) {
       if (
         videoFrame.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
-        videoFrame.videoWidth === 0
+        videoFrame.videoWidth === 0 ||
+        videoFrame.videoHeight === 0
       ) {
         return lastPose;
       }
 
-      if (videoFrame.currentTime === lastVideoTime) {
-        return lastPose;
+      let timestamp = performance.now();
+      if (timestamp <= lastTimestamp) {
+        timestamp = lastTimestamp + 1;
       }
-
-      lastVideoTime = videoFrame.currentTime;
+      lastTimestamp = timestamp;
 
       try {
-        const result = landmarker.detectForVideo(videoFrame, performance.now());
+        const result = landmarker.detectForVideo(videoFrame, timestamp);
         lastPose = result.landmarks[0] ? mapDetectedPose(result.landmarks[0]) : null;
-      } catch {
+      } catch (detectError) {
+        console.warn("[pose] detectForVideo failed", detectError);
         return lastPose;
       }
 
       return lastPose;
     },
-    close() {
-      landmarker.close();
-    },
   };
+}
+
+export function getPoseDetector(): Promise<PoseDetector> {
+  if (!detectorPromise) {
+    detectorPromise = createPoseDetector().catch((error) => {
+      detectorPromise = null;
+      throw error;
+    });
+  }
+
+  return detectorPromise;
 }
