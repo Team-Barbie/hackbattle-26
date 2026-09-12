@@ -1,6 +1,6 @@
 import Icon, { type IconName } from "./Icon";
 
-export type PatientTab = "home" | "program" | "progress" | "profile";
+export type PatientTab = "home" | "program" | "progress" | "chat" | "profile";
 
 type Props = {
   active: PatientTab;
@@ -11,6 +11,7 @@ const TABS: Array<{ id: PatientTab; label: string; icon: IconName }> = [
   { id: "home", label: "Home", icon: "home" },
   { id: "program", label: "Program", icon: "program" },
   { id: "progress", label: "Progress", icon: "progress" },
+  { id: "chat", label: "Chat", icon: "chat" },
   { id: "profile", label: "Profile", icon: "profile" },
 ];
 

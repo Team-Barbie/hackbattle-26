@@ -534,6 +534,47 @@
   text-align: center;
 }
 
+/* ---------- Chat ---------- */
+
+.chat-panel {
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-panel .empty {
+  border: 0;
+  padding: 0;
+}
+
+.chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-composer input {
+  flex: 1;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.chat-composer input::placeholder {
+  color: var(--muted);
+}
+
+.chat-composer input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .empty strong {
   color: var(--text-dim);
 }

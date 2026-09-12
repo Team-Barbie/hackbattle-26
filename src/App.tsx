@@ -4,6 +4,7 @@ import type { ExerciseId } from "./exercises/exerciseCatalog";
 import { exerciseName } from "./exercises/exerciseCatalog";
 import { codesMatch, createPlanStep, type Prescription } from "./exercises/prescription";
 import { loadReferenceExercise } from "./exercises/custom/referenceExercise";
+import ChatScreen from "./screens/ChatScreen";
 import ExerciseDetailScreen from "./screens/ExerciseDetailScreen";
 import HomeScreen from "./screens/HomeScreen";
 import LoginScreen from "./screens/LoginScreen";
@@ -14,6 +15,7 @@ import ReadinessScreen from "./screens/ReadinessScreen";
 import RoleSelectScreen, { type Role } from "./screens/RoleSelectScreen";
 import SessionScreen, { type SessionOutcome } from "./screens/SessionScreen";
 import SessionSummaryScreen from "./screens/SessionSummaryScreen";
+import TherapistInboxScreen from "./screens/TherapistInboxScreen";
 import TherapistScreen from "./screens/TherapistScreen";
 import {
   fetchClinicPlan,
@@ -47,11 +49,14 @@ type Route =
   | { name: "role" }
   | { name: "login" }
   | { name: "therapist"; draft?: Prescription }
+  | { name: "inbox" }
+  | { name: "therapistChat"; patientName: string }
   | { name: "therapist-record"; draft: Prescription }
   | { name: "home" }
   | { name: "program" }
   | { name: "exercise"; exerciseId: ExerciseId }
   | { name: "progress" }
+  | { name: "chat" }
   | { name: "profile" }
   | { name: "readiness"; plan: Prescription }
   | { name: "session"; plan: Prescription; readiness: number | null }
@@ -62,6 +67,7 @@ const TAB_FOR_ROUTE: Partial<Record<Route["name"], PatientTab>> = {
   program: "program",
   exercise: "program",
   progress: "progress",
+  chat: "chat",
   profile: "profile",
 };
 
@@ -307,6 +313,7 @@ export default function App() {
         onResetToDefault={handleResetPrescription}
         onBack={() => go({ name: "role" })}
         onPreviewAsPatient={() => go(profile ? { name: "home" } : { name: "login" })}
+        onOpenInbox={() => go({ name: "inbox" })}
         onRecordCustomExercise={(draft) => go({ name: "therapist-record", draft })}
       />
     );
@@ -332,6 +339,20 @@ export default function App() {
         onExit={() => go({ name: "therapist", draft: route.draft })}
       />
     );
+  }
+
+  if (route.name === "inbox") {
+    return (
+      <TherapistInboxScreen
+        patient={profile}
+        onOpenChat={(patientName) => go({ name: "therapistChat", patientName })}
+        onBack={() => go({ name: "therapist" })}
+      />
+    );
+  }
+
+  if (route.name === "therapistChat") {
+    return <ChatScreen peerName={route.patientName} onBack={() => go({ name: "inbox" })} />;
   }
 
   if (route.name === "login") {
@@ -418,6 +439,9 @@ export default function App() {
       break;
     case "progress":
       page = <ProgressScreen profile={profile} />;
+      break;
+    case "chat":
+      page = <ChatScreen peerName={plan.therapist} />;
       break;
     case "profile":
       page = (

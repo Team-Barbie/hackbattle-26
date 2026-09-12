@@ -25,6 +25,7 @@ export type IconName =
   | "info"
   | "patient"
   | "therapist"
+  | "chat"
   | "logo";
 
 const PATHS: Record<IconName, string> = {
@@ -53,6 +54,7 @@ const PATHS: Record<IconName, string> = {
   info: "M12 8h.01M11 12h1v5h1M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
   patient: "M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 9a6 6 0 0 1 12 0M12 14v3M10.5 15.5h3",
   therapist: "M9 4h6v3H9zM6 7h12v13H6zM12 11v5M9.5 13.5h5",
+  chat: "M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2V5z",
   logo: "M5 13c2-6 5-6 7 0s5 6 7 0M5 13v0M19 13v0",
 };
 

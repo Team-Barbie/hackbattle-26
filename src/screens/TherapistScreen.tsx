@@ -35,6 +35,7 @@ type Props = {
   onResetToDefault: () => void;
   onBack: () => void;
   onPreviewAsPatient: () => void;
+  onOpenInbox: () => void;
   onRecordCustomExercise: (draft: Prescription) => void;
 };
 
@@ -69,6 +70,7 @@ export default function TherapistScreen({
   onResetToDefault,
   onBack,
   onPreviewAsPatient,
+  onOpenInbox,
   onRecordCustomExercise,
 }: Props) {
   const [draft, setDraft] = useState<Prescription>(() =>
@@ -177,10 +179,16 @@ export default function TherapistScreen({
   return (
     <div className="screen studio">
       <div className="screen__top">
-        <button type="button" className="back-link" onClick={onBack}>
-          <Icon name="back" />
-          Sign out
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button type="button" className="back-link" onClick={onBack}>
+            <Icon name="back" />
+            Sign out
+          </button>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={onOpenInbox}>
+            <Icon name="chat" />
+            Messages
+          </button>
+        </div>
         <Brand />
       </div>
 
