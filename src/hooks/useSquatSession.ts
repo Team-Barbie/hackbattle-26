@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { calculateAngleOrNull } from "../biomechanics/angles";
+import { thighElevation, type ThighReading } from "../biomechanics/thighElevation";
 import { nextCue, type Cue, type MoveDirection } from "../coaching/cues";
 import { createSquatCounter } from "../exercises/squat/squatCounter";
 import {
-  combineKneeAngles,
+  combineThighElevations,
   detectSquatState,
   type SquatState,
 } from "../exercises/squat/squatState";
@@ -19,7 +19,8 @@ import { drawBodyFigure, drawPoseOverlay } from "../vision/render";
 export type CameraStatus = "idle" | "starting" | "live" | "stopped" | "error";
 
 const PUBLISH_INTERVAL_MS = 120;
-const DIRECTION_DEADBAND_DEG = 2;
+/** Elevation is a 0-1 ratio, so this is a fraction of thigh length, not degrees. */
+const DIRECTION_DEADBAND = 0.03;
 const DEFAULT_TARGET_REPS = 10;
 
 function cameraErrorMessage(error: unknown): string {
@@ -42,22 +43,25 @@ function visibleJoint(point: LandmarkPoint | null) {
   return isVisible(point) ? point : null;
 }
 
-function kneeAnglesFromPose(pose: DetectedPose | null) {
+function sideReading(
+  hip: LandmarkPoint | null,
+  knee: LandmarkPoint | null,
+): ThighReading {
+  return {
+    elevation: thighElevation(visibleJoint(hip), visibleJoint(knee)),
+    confidence: Math.min(hip?.visibility ?? 0, knee?.visibility ?? 0),
+  };
+}
+
+function thighReadingsFromPose(pose: DetectedPose | null) {
   if (!pose) {
-    return { left: null, right: null };
+    const empty: ThighReading = { elevation: null, confidence: 0 };
+    return { left: empty, right: empty };
   }
 
   return {
-    left: calculateAngleOrNull(
-      visibleJoint(pose.leftHip),
-      visibleJoint(pose.leftKnee),
-      visibleJoint(pose.leftAnkle),
-    ),
-    right: calculateAngleOrNull(
-      visibleJoint(pose.rightHip),
-      visibleJoint(pose.rightKnee),
-      visibleJoint(pose.rightAnkle),
-    ),
+    left: sideReading(pose.leftHip, pose.leftKnee),
+    right: sideReading(pose.rightHip, pose.rightKnee),
   };
 }
 
@@ -81,7 +85,7 @@ export function useSquatSession() {
 
   const [tracking, setTracking] = useState(false);
   const [squatState, setSquatState] = useState<SquatState | null>(null);
-  const [kneeAngle, setKneeAngle] = useState<number | null>(null);
+  const [elevation, setElevation] = useState<number | null>(null);
   const [direction, setDirection] = useState<MoveDirection>("still");
   const [reps, setReps] = useState(0);
   const [lastRepDepth, setLastRepDepth] = useState<number | null>(null);
@@ -151,7 +155,7 @@ export function useSquatSession() {
     squatStateRef.current = null;
     setTracking(false);
     setSquatState(null);
-    setKneeAngle(null);
+    setElevation(null);
     setDirection("still");
   }, [stopTracks]);
 
@@ -217,7 +221,7 @@ export function useSquatSession() {
     let rafId = 0;
     let frameHandle: number | null = null;
     let lastPublishedAt = 0;
-    let lastPublishedAngle: number | null = null;
+    let lastPublishedElevation: number | null = null;
 
     const detectFrame = () => {
       if (stopped) {
@@ -238,16 +242,16 @@ export function useSquatSession() {
           drawBodyFigure(figureRef.current, pose);
         }
 
-        const angles = kneeAnglesFromPose(pose);
-        const knee = combineKneeAngles(angles.left, angles.right);
-        const state = detectSquatState(knee, squatStateRef.current);
+        const readings = thighReadingsFromPose(pose);
+        const elevation = combineThighElevations(readings.left, readings.right);
+        const state = detectSquatState(elevation, squatStateRef.current);
         squatStateRef.current = state;
 
-        const completedRep = counterRef.current.update(state, knee);
+        const completedRep = counterRef.current.update(state, elevation);
 
         if (completedRep) {
           setReps(counterRef.current.count);
-          setLastRepDepth(completedRep.minKneeAngle);
+          setLastRepDepth(completedRep.deepestElevation);
         }
 
         const now = performance.now();
@@ -255,21 +259,21 @@ export function useSquatSession() {
         if (now - lastPublishedAt >= PUBLISH_INTERVAL_MS) {
           lastPublishedAt = now;
 
-          if (knee !== null && lastPublishedAngle !== null) {
-            const delta = knee - lastPublishedAngle;
+          if (elevation !== null && lastPublishedElevation !== null) {
+            const delta = elevation - lastPublishedElevation;
             setDirection(
-              delta < -DIRECTION_DEADBAND_DEG
+              delta < -DIRECTION_DEADBAND
                 ? "descending"
-                : delta > DIRECTION_DEADBAND_DEG
+                : delta > DIRECTION_DEADBAND
                   ? "ascending"
                   : "still",
             );
           }
 
-          lastPublishedAngle = knee;
+          lastPublishedElevation = elevation;
           setTracking(Boolean(pose));
           setSquatState(state);
-          setKneeAngle(knee);
+          setElevation(elevation);
         }
       }
 
@@ -326,7 +330,7 @@ export function useSquatSession() {
     videoAspect,
     tracking,
     squatState,
-    kneeAngle,
+    elevation,
     direction,
     reps,
     targetReps,

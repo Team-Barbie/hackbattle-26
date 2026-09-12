@@ -1,11 +1,13 @@
+import { thighAngleDegrees } from "../biomechanics/thighElevation";
 import type { SquatSession } from "../hooks/useSquatSession";
 
-function formatAngle(angle: number | null): string {
-  return angle === null ? "—" : `${Math.round(angle)}°`;
+function formatThigh(elevation: number | null): string {
+  const degrees = thighAngleDegrees(elevation);
+  return degrees === null ? "—" : `${Math.round(degrees)}°`;
 }
 
 export default function FeedbackPanel({ session }: { session: SquatSession }) {
-  const { cue, squatState, kneeAngle, lastRepDepth, poseReady, poseError } = session;
+  const { cue, squatState, elevation, lastRepDepth, poseReady, poseError } = session;
 
   return (
     <section className="panel feedback-panel" aria-label="Live feedback">
@@ -24,12 +26,12 @@ export default function FeedbackPanel({ session }: { session: SquatSession }) {
           </dd>
         </div>
         <div>
-          <dt>Knee angle</dt>
-          <dd>{formatAngle(kneeAngle)}</dd>
+          <dt>Thigh (0° = parallel)</dt>
+          <dd>{formatThigh(elevation)}</dd>
         </div>
         <div>
           <dt>Last rep depth</dt>
-          <dd>{formatAngle(lastRepDepth)}</dd>
+          <dd>{formatThigh(lastRepDepth)}</dd>
         </div>
       </dl>
 
