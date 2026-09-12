@@ -2,8 +2,8 @@ import { PoseLandmarker } from "@mediapipe/tasks-vision";
 import { landmarkVisibility } from "./landmarks";
 import type { DetectedPose } from "./poseDetector";
 
-const ACCENT = "#3b5bdb";
-const BONE = "#efefef";
+const ACCENT = "#7dffb3";
+const BONE = "#ffffff";
 
 function drawable(point: { x: number; y: number } | undefined): point is { x: number; y: number } {
   return Boolean(point && Number.isFinite(point.x) && Number.isFinite(point.y));

@@ -1,0 +1,53 @@
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #0f1113;
+  --bg-2: #131619;
+  --surface: #161a1d;
+  --surface-2: #1c2024;
+  --surface-3: #24292e;
+  --line: #262b30;
+  --line-strong: #343a41;
+  --overlay: rgba(15, 17, 19, 0.78);
+
+  /* Text */
+  --text: #e8ebee;
+  --text-dim: #a9b0b7;
+  --muted: #767e86;
+
+  /* Brand */
+  --accent: #7dffb3;
+  --accent-strong: #4fe89b;
+  --accent-ink: #06130c;
+  --accent-tint: rgba(125, 255, 179, 0.12);
+
+  /* Semantic cue tones */
+  --tone-wait: #c3c9cf;
+  --tone-down: #ffb45c;
+  --tone-up: #7dffb3;
+  --tone-hold: #6fb7ff;
+  --danger: #ff7a8a;
+  --danger-tint: rgba(255, 122, 138, 0.12);
+
+  /* Shape */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --fast: 120ms;
+  --slow: 220ms;
+
+  /* Layout */
+  --page-max: 680px;
+  --session-max: 1280px;
+  --tab-bar-height: 60px;
+}

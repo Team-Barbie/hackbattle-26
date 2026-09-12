@@ -134,7 +134,7 @@ export function nextCue({
     if (state === "LATERAL_UP") {
       return {
         headline: "Lower slowly",
-        detail: "Control the way down. Don't drop the arms.",
+        detail: "Control the way down — don't drop the arms.",
         tone: "down",
       };
     }

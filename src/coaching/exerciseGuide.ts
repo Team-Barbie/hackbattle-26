@@ -27,7 +27,7 @@ export const exerciseGuides: Record<ExerciseId, ExerciseGuide> = {
     summary: "Lift from the shoulders, not a swing.",
     steps: [
       "Stand tall facing the camera, arms relaxed at your sides.",
-      "Keep a soft bend in the elbows. Don't lock them.",
+      "Keep a soft bend in the elbows — don't lock them.",
       "Raise both arms out to the sides until they are about shoulder height.",
       "Pause briefly at the top without shrugging.",
       "Lower slowly back to your sides.",
@@ -42,7 +42,7 @@ export const exerciseGuides: Record<ExerciseId, ExerciseGuide> = {
       "Start with arms long, palms facing forward.",
       "Curl both hands toward your shoulders without swinging.",
       "Squeeze at the top, then lower all the way down.",
-      "Keep the elbows still. Don't let them drift forward.",
+      "Keep the elbows still — don't let them drift forward.",
     ],
     cameraTip: "Face the camera close enough that both shoulders, elbows, and wrists stay visible.",
   },
