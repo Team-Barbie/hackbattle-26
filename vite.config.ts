@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { createReadStream, copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
@@ -47,6 +48,10 @@ function mediapipeWasm(): Plugin {
 
 export default defineConfig({
   plugins: [react(), mediapipeWasm()],
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
   optimizeDeps: {
     exclude: ["@mediapipe/tasks-vision"],
   },

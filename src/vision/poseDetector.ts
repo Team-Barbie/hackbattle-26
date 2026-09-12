@@ -293,10 +293,12 @@ async function createLandmarker(
 
 async function createPoseDetector(): Promise<PoseDetector> {
   const localModel = absoluteUrl(LOCAL_MODEL_PATH);
+  const localWasm = absoluteUrl(`${LOCAL_WASM_ROOT}/`);
   const loadAttempts: Array<{ wasmRoot: string; model: string; delegate: "GPU" | "CPU" }> = [
-    { wasmRoot: CDN_WASM_ROOT, model: REMOTE_MODEL_PATH, delegate: "CPU" },
+    { wasmRoot: localWasm, model: localModel, delegate: "GPU" },
+    { wasmRoot: localWasm, model: localModel, delegate: "CPU" },
     { wasmRoot: CDN_WASM_ROOT, model: localModel, delegate: "CPU" },
-    { wasmRoot: absoluteUrl(`${LOCAL_WASM_ROOT}/`), model: localModel, delegate: "CPU" },
+    { wasmRoot: CDN_WASM_ROOT, model: REMOTE_MODEL_PATH, delegate: "CPU" },
     { wasmRoot: CDN_WASM_ROOT, model: REMOTE_MODEL_PATH, delegate: "GPU" },
   ];
   let landmarker: PoseLandmarker | undefined;
@@ -325,7 +327,7 @@ async function createPoseDetector(): Promise<PoseDetector> {
   let lastDetectAt = 0;
   let lastPose: DetectedPose | null = null;
   let missedFrames = 0;
-  const smoother = new LandmarkSmoother(1.35, 2.4);
+  const smoother = new LandmarkSmoother(0.55, 0.7);
 
   const nextTimestamp = () => {
     let timestamp = performance.now();
