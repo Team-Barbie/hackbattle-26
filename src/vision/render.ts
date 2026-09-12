@@ -1,6 +1,9 @@
-import type { RefObject } from "react";
-import { PoseLandmarker } from "@mediapipe/tasks-vision";
-import type { DetectedPose } from "../vision/poseDetector";
+import { DrawingUtils, PoseLandmarker } from "@mediapipe/tasks-vision";
+import type { DetectedPose } from "./poseDetector";
+
+const ACCENT = "#3dd68c";
+const BONE = "#edf3ef";
+const VISIBLE_LANDMARK = 0.16;
 
 const NOSE = 0;
 const LEFT_EAR = 7;
@@ -11,6 +14,55 @@ const LEFT_HIP = 23;
 const RIGHT_HIP = 24;
 
 const FACE_ONLY = new Set([1, 2, 3, 4, 5, 6, 9, 10]);
+
+let overlayUtils: DrawingUtils | null = null;
+
+export function drawPoseOverlay(
+  canvas: HTMLCanvasElement,
+  video: HTMLVideoElement,
+  pose: DetectedPose | null,
+) {
+  if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    overlayUtils = null;
+  }
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return;
+  }
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!pose) {
+    return;
+  }
+
+  const visibleLandmarks = pose.landmarks.map((landmark) =>
+    (landmark.visibility ?? 0) >= VISIBLE_LANDMARK ? landmark : undefined,
+  );
+  const visibleConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
+    (connection) => visibleLandmarks[connection.start] && visibleLandmarks[connection.end],
+  );
+
+  overlayUtils ??= new DrawingUtils(context);
+  overlayUtils.drawConnectors(pose.landmarks, visibleConnections, {
+    color: ACCENT,
+    lineWidth: 4,
+  });
+  overlayUtils.drawLandmarks(
+    visibleLandmarks.filter((landmark): landmark is NonNullable<typeof landmark> =>
+      Boolean(landmark),
+    ),
+    {
+      color: BONE,
+      radius: 5,
+      fillColor: ACCENT,
+    },
+  );
+}
 
 type Vec = { x: number; y: number };
 
@@ -34,7 +86,12 @@ function dist(a: Vec, b: Vec): number {
 function takePoint(landmarks: DetectedPose["landmarks"], index: number): Vec | null {
   const point = landmarks[index];
 
-  if (point && Number.isFinite(point.x) && Number.isFinite(point.y) && (point.visibility ?? 1) >= 0.04) {
+  if (
+    point &&
+    Number.isFinite(point.x) &&
+    Number.isFinite(point.y) &&
+    (point.visibility ?? 1) >= 0.04
+  ) {
     held[index] = { x: point.x, y: point.y };
     return held[index];
   }
@@ -64,10 +121,17 @@ function bodyFrame(points: Array<Vec | null>): { origin: Vec; size: number } | n
   const leftHip = points[LEFT_HIP];
   const rightHip = points[RIGHT_HIP];
   const midShoulder = mid(leftShoulder, rightShoulder);
-  const midHip = leftHip && rightHip ? mid(leftHip, rightHip) : { x: midShoulder.x, y: midShoulder.y + 0.28 };
+  const midHip =
+    leftHip && rightHip
+      ? mid(leftHip, rightHip)
+      : { x: midShoulder.x, y: midShoulder.y + 0.28 };
   const origin = leftHip && rightHip ? midHip : midShoulder;
 
-  let reach = Math.max(dist(leftShoulder, rightShoulder) * 2.4, dist(midShoulder, midHip) * 2.1, 0.2);
+  let reach = Math.max(
+    dist(leftShoulder, rightShoulder) * 2.4,
+    dist(midShoulder, midHip) * 2.1,
+    0.2,
+  );
 
   for (const point of points) {
     if (!point) {
@@ -99,7 +163,7 @@ function drawSegment(
   const start = toScreen(from, width, height);
   const end = toScreen(to, width, height);
 
-  context.strokeStyle = "#3dd68c";
+  context.strokeStyle = ACCENT;
   context.lineWidth = weight;
   context.lineCap = "round";
   context.lineJoin = "round";
@@ -154,7 +218,7 @@ export function drawBodyFigure(canvas: HTMLCanvasElement, pose: DetectedPose | n
     viewSize = lerp(viewSize, frame.size, 0.16);
   }
 
-  const line = Math.max(2.4, canvas.width * 0.008);
+  const line = Math.max(2.4, canvas.width * 0.014);
   const joint = Math.max(2.2, line * 0.85);
 
   for (const connection of PoseLandmarker.POSE_CONNECTIONS) {
@@ -182,7 +246,7 @@ export function drawBodyFigure(canvas: HTMLCanvasElement, pose: DetectedPose | n
     }
 
     const { x, y } = toScreen(point, canvas.width, canvas.height);
-    context.fillStyle = "#edf3ef";
+    context.fillStyle = BONE;
     context.beginPath();
     context.arc(x, y, joint, 0, Math.PI * 2);
     context.fill();
@@ -194,28 +258,16 @@ export function drawBodyFigure(canvas: HTMLCanvasElement, pose: DetectedPose | n
 
   if (nose) {
     const head = toScreen(nose, canvas.width, canvas.height);
-    const earSpan = leftEar && rightEar ? dist(toScreen(leftEar, canvas.width, canvas.height), toScreen(rightEar, canvas.width, canvas.height)) : line * 8;
-    context.fillStyle = "#3dd68c";
+    const earSpan =
+      leftEar && rightEar
+        ? dist(
+            toScreen(leftEar, canvas.width, canvas.height),
+            toScreen(rightEar, canvas.width, canvas.height),
+          )
+        : line * 8;
+    context.fillStyle = ACCENT;
     context.beginPath();
     context.arc(head.x, head.y, Math.max(line * 2.4, earSpan * 0.42), 0, Math.PI * 2);
     context.fill();
   }
-}
-
-export default function PoseFigure({
-  canvasRef,
-  tracking,
-}: {
-  canvasRef: RefObject<HTMLCanvasElement | null>;
-  tracking: boolean;
-}) {
-  return (
-    <section className="figure-card">
-      <div className={`figure-frame${tracking ? " is-live" : ""}`}>
-        <canvas ref={canvasRef} className="figure-canvas" aria-label="Live pose avatar" />
-        <span className="camera-badge">{tracking ? "Avatar" : "Waiting"}</span>
-      </div>
-      <p className="figure-caption">Copies your real joints — arms, hands, hips, knees, and feet.</p>
-    </section>
-  );
 }
