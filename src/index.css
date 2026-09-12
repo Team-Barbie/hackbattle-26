@@ -3,11 +3,26 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: #0f1412;
-  color: #edf3ef;
+  background: #0e0e16;
+  color: #ececf4;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+
+  --accent: #7c6cf6;
+  --accent-hover: #9385ff;
+  --accent-soft: #a99bff;
+  --on-accent: #0b0720;
+  --warn: #f0a85c;
+  --hold: #5ec8e5;
+  --surface: #14141f;
+  --raised: #262638;
+  --raised-hover: #32324a;
+  --track: #1e1e2c;
+  --line: #2c2c40;
+  --muted: #8f8fa6;
+  --dim: #bcbcd0;
+  --danger: #ff9fb0;
 }
 
 * {
@@ -24,24 +39,24 @@ body,
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(61, 214, 140, 0.12), transparent 38%),
-    #0f1412;
+    radial-gradient(circle at top, rgba(124, 108, 246, 0.16), transparent 38%),
+    #0e0e16;
 }
 
 .app {
-  width: min(1180px, calc(100% - 32px));
+  width: min(1320px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 40px 0 56px;
+  padding: 32px 0 48px;
 }
 
 .app-header {
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .app-eyebrow {
-  margin: 0 0 8px;
-  color: #7ee0a8;
-  font-size: 0.8rem;
+  margin: 0 0 6px;
+  color: var(--accent-soft);
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -49,87 +64,81 @@ body {
 
 .app-header h1 {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
   letter-spacing: -0.04em;
 }
 
-.app-subtitle {
-  margin: 10px 0 0;
-  color: #b7c4bb;
-}
-
-.camera-card {
+/* Wireframe grid: camera + reps, then guide + feedback, then controls. */
+.stage {
   display: grid;
   gap: 16px;
+  grid-template-columns: minmax(230px, 1fr) minmax(0, 2.3fr) minmax(210px, 0.95fr);
+  grid-template-areas:
+    "camera   camera   reps"
+    "guide    feedback feedback"
+    "controls controls controls";
+  align-items: stretch;
 }
 
-.studio {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
-  gap: 16px;
-  align-items: start;
+.camera-panel {
+  grid-area: camera;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
-.figure-card {
+.reps-panel {
+  grid-area: reps;
+}
+
+.guide-panel {
+  grid-area: guide;
+}
+
+.feedback-panel {
+  grid-area: feedback;
+}
+
+.control-bar {
+  grid-area: controls;
+}
+
+.panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-}
-
-.figure-frame {
-  position: relative;
-  overflow: hidden;
-  flex: 1;
-  min-height: 420px;
-  aspect-ratio: 3 / 4;
-  border: 1px solid #2a3830;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
   border-radius: 20px;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(61, 214, 140, 0.08), transparent 42%),
-    #111815;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  background: var(--surface);
+  min-width: 0;
 }
 
-.figure-frame.is-live {
-  border-color: #3dd68c;
-}
-
-.figure-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.figure-caption {
+.panel-title {
   margin: 0;
-  color: #93a399;
-  font-size: 0.85rem;
+  color: var(--dim);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-@media (max-width: 800px) {
-  .studio {
-    grid-template-columns: 1fr;
-  }
-
-  .figure-frame {
-    min-height: 320px;
-    aspect-ratio: 3 / 4;
-  }
-}
+/* Camera */
 
 .camera-frame {
   position: relative;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
   aspect-ratio: 16 / 9;
-  border: 1px solid #2a3830;
+  border: 1px solid var(--line);
   border-radius: 20px;
-  background: #111815;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  background: var(--surface);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.34);
 }
 
 .camera-frame.is-live {
-  border-color: #3dd68c;
+  border-color: var(--accent);
 }
 
 .camera-stage {
@@ -150,7 +159,7 @@ body {
 }
 
 .camera-video {
-  background: #111815;
+  background: var(--surface);
 }
 
 .pose-overlay {
@@ -162,77 +171,242 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
-  color: #93a399;
-  background: #111815;
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface);
 }
 
 .camera-badge {
   position: absolute;
   top: 14px;
-  left: 14px;
+  right: 14px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(17, 24, 21, 0.82);
-  color: #d7e4db;
-  font-size: 0.75rem;
+  background: rgba(20, 20, 31, 0.82);
+  color: var(--dim);
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .camera-frame.is-live .camera-badge {
-  background: #3dd68c;
-  color: #082015;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
-.camera-error {
+/* Avatar picture-in-picture, top-left of the camera frame */
+
+.avatar-pip {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: clamp(96px, 15%, 168px);
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(11, 11, 18, 0.86);
+  backdrop-filter: blur(4px);
+}
+
+.avatar-pip.is-live {
+  border-color: var(--accent);
+}
+
+.avatar-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-label {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Rep counter */
+
+.reps-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reps-label {
   margin: 0;
-  color: #ffb4b4;
-}
-
-.pose-log {
-  padding: 14px 16px;
-  border: 1px solid #2a3830;
-  border-radius: 16px;
-  background: #111815;
-}
-
-.pose-log-title {
-  margin: 0;
-  color: #b7c4bb;
+  color: var(--muted);
   font-size: 0.85rem;
+}
+
+.reps-value {
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--accent-soft);
+}
+
+.reps-value.is-muted {
+  color: #ececf4;
+}
+
+.reps-target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reps-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.reps-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.reps-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 180ms ease-out;
+}
+
+/* Guide */
+
+.guide-name {
+  margin: 0;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
-.pose-log-coords {
-  margin: 10px 0 0;
-  color: #edf3ef;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+.guide-summary {
+  margin: 0;
+  color: var(--accent-soft);
   font-size: 0.85rem;
-  line-height: 1.6;
 }
 
-.squat-state {
-  margin: 8px 0 0;
-  color: #93a399;
-  font-size: clamp(2.4rem, 6vw, 3.4rem);
+.guide-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 0.86rem;
+}
+
+.guide-tip {
+  margin: auto 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* Live feedback */
+
+.cue-headline {
+  margin: 0;
+  font-size: clamp(1.9rem, 4.4vw, 3rem);
   font-weight: 800;
-  letter-spacing: 0.08em;
-  line-height: 1;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--dim);
 }
 
-.squat-state.is-up {
-  color: #3dd68c;
+.cue-headline.tone-down {
+  color: var(--warn);
 }
 
-.squat-state.is-down {
-  color: #f3c16b;
+.cue-headline.tone-up {
+  color: var(--accent-soft);
 }
 
-.camera-controls {
+.cue-headline.tone-hold {
+  color: var(--hold);
+}
+
+.cue-detail {
+  margin: 6px 0 0;
+  color: var(--dim);
+  font-size: 0.95rem;
+}
+
+.readouts {
   display: flex;
   flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: auto 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.readouts div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.readouts dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.readouts dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.readouts dd.is-up {
+  color: var(--accent-soft);
+}
+
+.readouts dd.is-down {
+  color: var(--warn);
+}
+
+.feedback-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.feedback-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+/* Controls */
+
+.control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
 }
 
 button {
@@ -240,15 +414,15 @@ button {
   padding: 12px 18px;
   border: 0;
   border-radius: 999px;
-  background: #3dd68c;
-  color: #082015;
+  background: var(--accent);
+  color: var(--on-accent);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background: #63e4a4;
+  background: var(--accent-hover);
 }
 
 button:disabled {
@@ -257,10 +431,62 @@ button:disabled {
 }
 
 button.secondary {
-  background: #223028;
-  color: #edf3ef;
+  background: var(--raised);
+  color: #ececf4;
 }
 
 button.secondary:hover:not(:disabled) {
-  background: #2d3e34;
+  background: var(--raised-hover);
+}
+
+button.block {
+  width: 100%;
+  min-width: 0;
+  margin-top: auto;
+  padding: 9px 14px;
+  font-size: 0.85rem;
+}
+
+button.step {
+  min-width: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--raised);
+  color: #ececf4;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+button.step:hover:not(:disabled) {
+  background: var(--raised-hover);
+}
+
+@media (max-width: 1000px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "camera   camera"
+      "reps     feedback"
+      "guide    guide"
+      "controls controls";
+  }
+}
+
+@media (max-width: 700px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "camera"
+      "feedback"
+      "reps"
+      "guide"
+      "controls";
+  }
+
+  .control-bar button {
+    flex: 1 1 100%;
+  }
 }
