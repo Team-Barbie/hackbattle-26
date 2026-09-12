@@ -47,6 +47,11 @@ const WAIT_IN_FRAME: Record<ExerciseId, Cue> = {
     detail: "Move back until your head, hips, knees, and ankles are all visible.",
     tone: "wait",
   },
+  custom: {
+    headline: "Step into frame",
+    detail: "Keep your full body visible while recording and practising.",
+    tone: "wait",
+  },
 };
 
 export function nextCue({
@@ -167,6 +172,38 @@ export function nextCue({
           detail: "Elbows close to your ribs, arms long.",
           tone: "wait",
         };
+  }
+
+  if (exerciseId === "custom") {
+    if (state === "RECORDING") {
+      return {
+        headline: "Recording reference",
+        detail: "Perform one complete repetition, then press Stop and use.",
+        tone: "hold",
+      };
+    }
+
+    if (state === "NO_REFERENCE") {
+      return {
+        headline: "Record a reference",
+        detail: "Use the recording control below, then perform one complete repetition.",
+        tone: "wait",
+      };
+    }
+
+    if (state === "MATCHED") {
+      return {
+        headline: "Good match",
+        detail: "Keep following the recorded movement at a controlled pace.",
+        tone: "up",
+      };
+    }
+
+    return {
+      headline: "Follow the reference",
+      detail: "Adjust your joint positions to improve the live match score.",
+      tone: "down",
+    };
   }
 
   if (state === "UP") {
