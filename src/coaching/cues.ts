@@ -32,7 +32,7 @@ export function nextCue({
   if (!tracking) {
     return {
       headline: "Step into frame",
-      detail: "Move back until your hips, knees, and ankles are all visible.",
+      detail: "Move back until your head, hips, knees, and ankles are all visible.",
       tone: "wait",
     };
   }

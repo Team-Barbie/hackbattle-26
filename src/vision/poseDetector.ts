@@ -12,6 +12,7 @@ const REMOTE_MODEL_PATH =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
 const LANDMARK_INDEX = {
+  nose: 0,
   leftShoulder: 11,
   rightShoulder: 12,
   leftElbow: 13,
@@ -25,7 +26,12 @@ const LANDMARK_INDEX = {
 } as const;
 
 const MIN_DETECT_INTERVAL_MS = 16;
-const CLOSEUP_SCALE = 0.62;
+const FRAME_MARGIN = 0.03;
+const MIN_BODY_SPAN = 0.5;
+const MIN_SEGMENT_LENGTH = 0.06;
+const MAX_SEGMENT_LENGTH = 0.45;
+const MIN_SEGMENT_RATIO = 0.45;
+const MAX_SEGMENT_RATIO = 2.2;
 
 export type LandmarkPoint = {
   x: number;
@@ -55,8 +61,6 @@ export type PoseDetector = {
 type NamedLandmark = keyof typeof LANDMARK_INDEX;
 
 let detectorPromise: Promise<PoseDetector> | null = null;
-const padCanvas = typeof document === "undefined" ? null : document.createElement("canvas");
-const padContext = padCanvas?.getContext("2d") ?? null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -126,6 +130,90 @@ export function isVisible(point: LandmarkPoint | null, threshold = 0.3): point i
   return Boolean(point && point.visibility >= threshold);
 }
 
+function pointDistance(a: NormalizedLandmark, b: NormalizedLandmark): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function isInsideFrame(point: NormalizedLandmark): boolean {
+  return (
+    point.x >= FRAME_MARGIN &&
+    point.x <= 1 - FRAME_MARGIN &&
+    point.y >= FRAME_MARGIN &&
+    point.y <= 1 - FRAME_MARGIN
+  );
+}
+
+function hasPlausibleSide(
+  pose: DetectedPose,
+  names: readonly [NamedLandmark, NamedLandmark, NamedLandmark, NamedLandmark],
+  threshold: number,
+): boolean {
+  const [shoulder, hip, knee, ankle] = names.map(
+    (name) => pose.landmarks[LANDMARK_INDEX[name]],
+  );
+  const nose = pose.landmarks[LANDMARK_INDEX.nose];
+
+  if (
+    !nose ||
+    !shoulder ||
+    !hip ||
+    !knee ||
+    !ankle ||
+    [nose, shoulder, hip, knee, ankle].some(
+      (point) => (point.visibility ?? 0) < threshold || !isInsideFrame(point),
+    )
+  ) {
+    return false;
+  }
+
+  const bodySpan = ankle.y - nose.y;
+  const torso = pointDistance(shoulder, hip);
+  const thigh = pointDistance(hip, knee);
+  const shin = pointDistance(knee, ankle);
+  const segments = [torso, thigh, shin];
+  const thighToShin = thigh / shin;
+  const torsoToThigh = torso / thigh;
+
+  return (
+    bodySpan >= MIN_BODY_SPAN &&
+    nose.y < shoulder.y &&
+    shoulder.y < hip.y + 0.03 &&
+    hip.y < ankle.y - 0.08 &&
+    knee.y < ankle.y - 0.04 &&
+    segments.every(
+      (length) => length >= MIN_SEGMENT_LENGTH && length <= MAX_SEGMENT_LENGTH,
+    ) &&
+    thighToShin >= MIN_SEGMENT_RATIO &&
+    thighToShin <= MAX_SEGMENT_RATIO &&
+    torsoToThigh >= MIN_SEGMENT_RATIO &&
+    torsoToThigh <= MAX_SEGMENT_RATIO
+  );
+}
+
+/**
+ * Visibility confidence alone is not sufficient because Pose Landmarker can
+ * fit a confident skeleton to a hand or a cropped person. Require a large,
+ * in-frame, proportionally plausible body chain on either side.
+ */
+export function hasFullBodyVisible(pose: DetectedPose | null, threshold = 0.3): boolean {
+  if (!pose) {
+    return false;
+  }
+
+  return (
+    hasPlausibleSide(
+      pose,
+      ["leftShoulder", "leftHip", "leftKnee", "leftAnkle"],
+      threshold,
+    ) ||
+    hasPlausibleSide(
+      pose,
+      ["rightShoulder", "rightHip", "rightKnee", "rightAnkle"],
+      threshold,
+    )
+  );
+}
+
 export function formatPoseLog(pose: DetectedPose): string {
   const parts = [`L shoulder ${formatPoint(pose.leftShoulder)}`];
 
@@ -140,43 +228,6 @@ export function formatPoseLog(pose: DetectedPose): string {
   }
 
   return parts.join(" | ");
-}
-
-function drawCloseupFrame(video: HTMLVideoElement, scale: number): HTMLCanvasElement | null {
-  if (!padCanvas || !padContext) {
-    return null;
-  }
-
-  if (padCanvas.width !== video.videoWidth || padCanvas.height !== video.videoHeight) {
-    padCanvas.width = video.videoWidth;
-    padCanvas.height = video.videoHeight;
-  }
-
-  padContext.fillStyle = "#000";
-  padContext.fillRect(0, 0, padCanvas.width, padCanvas.height);
-
-  const drawnWidth = video.videoWidth * scale;
-  const drawnHeight = video.videoHeight * scale;
-  padContext.drawImage(
-    video,
-    (video.videoWidth - drawnWidth) / 2,
-    (video.videoHeight - drawnHeight) / 2,
-    drawnWidth,
-    drawnHeight,
-  );
-
-  return padCanvas;
-}
-
-function mapFromCloseup(landmarks: NormalizedLandmark[], scale: number): NormalizedLandmark[] {
-  const inset = (1 - scale) / 2;
-
-  return landmarks.map((landmark) => ({
-    x: (landmark.x - inset) / scale,
-    y: (landmark.y - inset) / scale,
-    z: landmark.z,
-    visibility: landmark.visibility ?? 0,
-  }));
 }
 
 async function createLandmarker(
@@ -236,8 +287,6 @@ async function createPoseDetector(): Promise<PoseDetector> {
   let lastDetectAt = 0;
   let lastPose: DetectedPose | null = null;
   let missedFrames = 0;
-  let useCloseup = false;
-  let framesSinceRawRetry = 0;
   const smoother = new LandmarkSmoother(1.35, 2.4);
 
   const nextTimestamp = () => {
@@ -269,28 +318,7 @@ async function createPoseDetector(): Promise<PoseDetector> {
       lastDetectAt = now;
 
       try {
-        let nextLandmarks: NormalizedLandmark[] | null = null;
-
-        framesSinceRawRetry += 1;
-        const shouldTryRaw = !useCloseup || framesSinceRawRetry >= 4;
-
-        if (shouldTryRaw) {
-          nextLandmarks = detectRaw(videoFrame);
-          if (nextLandmarks) {
-            useCloseup = false;
-            framesSinceRawRetry = 0;
-          }
-        }
-
-        if (!nextLandmarks && (useCloseup || missedFrames >= 2)) {
-          const closeup = drawCloseupFrame(videoFrame, CLOSEUP_SCALE);
-          const closeupLandmarks = closeup ? detectRaw(closeup) : null;
-
-          if (closeupLandmarks) {
-            nextLandmarks = mapFromCloseup(closeupLandmarks, CLOSEUP_SCALE);
-            useCloseup = true;
-          }
-        }
+        const nextLandmarks = detectRaw(videoFrame);
 
         if (nextLandmarks) {
           missedFrames = 0;
@@ -299,7 +327,6 @@ async function createPoseDetector(): Promise<PoseDetector> {
           missedFrames += 1;
           if (missedFrames > 14) {
             lastPose = null;
-            useCloseup = false;
           }
         }
       } catch (detectError) {

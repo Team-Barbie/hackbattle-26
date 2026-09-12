@@ -9,6 +9,7 @@ import {
 } from "../exercises/squat/squatState";
 import {
   getPoseDetector,
+  hasFullBodyVisible,
   isVisible,
   type DetectedPose,
   type LandmarkPoint,
@@ -22,6 +23,30 @@ const PUBLISH_INTERVAL_MS = 120;
 /** Elevation is a 0-1 ratio, so this is a fraction of thigh length, not degrees. */
 const DIRECTION_DEADBAND = 0.03;
 const DEFAULT_TARGET_REPS = 10;
+const CUE_SPEAK_DELAY_MS = 350;
+const REP_ANNOUNCEMENT_PRIORITY_MS = 1200;
+const FULL_BODY_GRACE_MS = 500;
+const BODY_STABILITY_MS = 1000;
+
+function cancelSpeech() {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+function speak(message: string) {
+  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.rate = 1.05;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
 
 function cameraErrorMessage(error: unknown): string {
   if (error instanceof DOMException) {
@@ -75,6 +100,9 @@ export function useSquatSession() {
   const squatStateRef = useRef<SquatState | null>(null);
   const counterRef = useRef(createSquatCounter());
   const showSkeletonRef = useRef(true);
+  const lastSpokenCueRef = useRef("");
+  const lastSpokenRepRef = useRef(0);
+  const suppressCuesUntilRef = useRef(0);
 
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +110,7 @@ export function useSquatSession() {
   const [poseReady, setPoseReady] = useState(false);
   const [videoAspect, setVideoAspect] = useState("16 / 9");
   const [showSkeleton, setShowSkeleton] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(true);
 
   const [tracking, setTracking] = useState(false);
   const [squatState, setSquatState] = useState<SquatState | null>(null);
@@ -175,6 +204,10 @@ export function useSquatSession() {
     });
   }, []);
 
+  const toggleAudio = useCallback(() => {
+    setAudioEnabled((enabled) => !enabled);
+  }, []);
+
   useEffect(() => stopTracks, [stopTracks]);
 
   useEffect(() => {
@@ -222,6 +255,9 @@ export function useSquatSession() {
     let frameHandle: number | null = null;
     let lastPublishedAt = 0;
     let lastPublishedElevation: number | null = null;
+    let lastFullBodyAt = 0;
+    let validBodySince = 0;
+    let bodyReady = false;
 
     const detectFrame = () => {
       if (stopped) {
@@ -242,19 +278,44 @@ export function useSquatSession() {
           drawBodyFigure(figureRef.current, pose);
         }
 
-        const readings = thighReadingsFromPose(pose);
-        const elevation = combineThighElevations(readings.left, readings.right);
-        const state = detectSquatState(elevation, squatStateRef.current);
-        squatStateRef.current = state;
+        const now = performance.now();
+        const fullBodyDetected = hasFullBodyVisible(pose);
 
-        const completedRep = counterRef.current.update(state, elevation);
+        if (fullBodyDetected) {
+          lastFullBodyAt = now;
+          validBodySince ||= now;
+
+          if (now - validBodySince >= BODY_STABILITY_MS) {
+            bodyReady = true;
+          }
+        } else if (lastFullBodyAt === 0 || now - lastFullBodyAt > FULL_BODY_GRACE_MS) {
+          validBodySince = 0;
+          bodyReady = false;
+        }
+
+        const insideGrace = lastFullBodyAt > 0 && now - lastFullBodyAt <= FULL_BODY_GRACE_MS;
+        const exerciseTracking = bodyReady && (fullBodyDetected || insideGrace);
+        const readings = thighReadingsFromPose(bodyReady && fullBodyDetected ? pose : null);
+        const elevation = combineThighElevations(readings.left, readings.right);
+        const state = exerciseTracking
+          ? detectSquatState(elevation, squatStateRef.current)
+          : null;
+
+        if (exerciseTracking) {
+          squatStateRef.current = state;
+        } else {
+          squatStateRef.current = null;
+          counterRef.current.cancelCurrentRep();
+        }
+
+        const completedRep = exerciseTracking
+          ? counterRef.current.update(state, elevation)
+          : null;
 
         if (completedRep) {
           setReps(counterRef.current.count);
           setLastRepDepth(completedRep.deepestElevation);
         }
-
-        const now = performance.now();
 
         if (now - lastPublishedAt >= PUBLISH_INTERVAL_MS) {
           lastPublishedAt = now;
@@ -268,10 +329,12 @@ export function useSquatSession() {
                   ? "ascending"
                   : "still",
             );
+          } else {
+            setDirection("still");
           }
 
           lastPublishedElevation = elevation;
-          setTracking(Boolean(pose));
+          setTracking(fullBodyDetected);
           setSquatState(state);
           setElevation(elevation);
         }
@@ -317,6 +380,54 @@ export function useSquatSession() {
     repsTarget: targetReps,
   });
 
+  useEffect(() => {
+    if (!isLive || !audioEnabled) {
+      cancelSpeech();
+      lastSpokenCueRef.current = "";
+      return;
+    }
+
+    const cueKey = `${cue.headline}|${cue.detail}`;
+
+    if (cueKey === lastSpokenCueRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (performance.now() < suppressCuesUntilRef.current) {
+        return;
+      }
+
+      lastSpokenCueRef.current = cueKey;
+      const message = cue.tone === "wait" ? `${cue.headline}. ${cue.detail}` : cue.headline;
+      speak(message);
+    }, CUE_SPEAK_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [audioEnabled, cue.detail, cue.headline, cue.tone, isLive]);
+
+  useEffect(() => {
+    if (reps === 0) {
+      lastSpokenRepRef.current = 0;
+      return;
+    }
+
+    if (reps <= lastSpokenRepRef.current) {
+      return;
+    }
+
+    lastSpokenRepRef.current = reps;
+
+    if (!isLive || !audioEnabled) {
+      return;
+    }
+
+    suppressCuesUntilRef.current = performance.now() + REP_ANNOUNCEMENT_PRIORITY_MS;
+    speak(reps >= targetReps ? `${reps} reps. Set complete.` : `Rep ${reps}`);
+  }, [audioEnabled, isLive, reps, targetReps]);
+
+  useEffect(() => cancelSpeech, []);
+
   return {
     videoRef,
     overlayRef,
@@ -339,6 +450,12 @@ export function useSquatSession() {
     cue,
     showSkeleton,
     toggleSkeleton,
+    audioEnabled,
+    audioSupported:
+      typeof window !== "undefined" &&
+      "speechSynthesis" in window &&
+      "SpeechSynthesisUtterance" in window,
+    toggleAudio,
     startCamera,
     stopCamera,
     resetSession,

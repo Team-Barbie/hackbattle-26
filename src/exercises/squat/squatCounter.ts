@@ -10,6 +10,7 @@ export type SquatCounter = {
   readonly reps: SquatRep[];
   readonly count: number;
   update: (state: SquatState | null, elevation: number | null) => SquatRep | null;
+  cancelCurrentRep: () => void;
   reset: () => void;
 };
 
@@ -21,6 +22,7 @@ export function createSquatCounter(): SquatCounter {
   let previous: SquatState | null = null;
   let deepest = Number.POSITIVE_INFINITY;
   let reps: SquatRep[] = [];
+  let startedFromUp = false;
 
   return {
     get reps() {
@@ -30,13 +32,13 @@ export function createSquatCounter(): SquatCounter {
       return reps.length;
     },
     update(state, elevation) {
-      if (elevation !== null) {
+      if (startedFromUp && elevation !== null) {
         deepest = Math.min(deepest, elevation);
       }
 
       let completed: SquatRep | null = null;
 
-      if (previous === "DOWN" && state === "UP") {
+      if (previous === "DOWN" && state === "UP" && startedFromUp) {
         completed = {
           index: reps.length + 1,
           deepestElevation: Number.isFinite(deepest) ? deepest : null,
@@ -45,16 +47,26 @@ export function createSquatCounter(): SquatCounter {
         deepest = Number.POSITIVE_INFINITY;
       }
 
+      if (state === "UP") {
+        startedFromUp = true;
+      }
+
       if (state !== null) {
         previous = state;
       }
 
       return completed;
     },
+    cancelCurrentRep() {
+      previous = null;
+      deepest = Number.POSITIVE_INFINITY;
+      startedFromUp = false;
+    },
     reset() {
       previous = null;
       deepest = Number.POSITIVE_INFINITY;
       reps = [];
+      startedFromUp = false;
     },
   };
 }
