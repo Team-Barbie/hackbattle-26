@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { DrawingUtils, PoseLandmarker } from "@mediapipe/tasks-vision";
 import {
-  createPoseDetector,
   formatPoseLog,
+  getPoseDetector,
   type DetectedPose,
   type PoseDetector,
 } from "../vision/poseDetector";
@@ -24,8 +25,39 @@ function cameraErrorMessage(error: unknown): string {
   return "Could not start the camera.";
 }
 
+function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, pose: DetectedPose | null) {
+  if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return;
+  }
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!pose) {
+    return;
+  }
+
+  const drawingUtils = new DrawingUtils(context);
+  drawingUtils.drawConnectors(pose.landmarks, PoseLandmarker.POSE_CONNECTIONS, {
+    color: "#3dd68c",
+    lineWidth: 3,
+  });
+  drawingUtils.drawLandmarks(pose.landmarks, {
+    color: "#edf3ef",
+    radius: 4,
+    fillColor: "#3dd68c",
+  });
+}
+
 export default function CameraView() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<PoseDetector | null>(null);
   const [status, setStatus] = useState<CameraStatus>("idle");
@@ -36,15 +68,29 @@ export default function CameraView() {
 
   async function requestStream() {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user" },
+      video: {
+        facingMode: "user",
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
       audio: false,
     });
 
     streamRef.current = stream;
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+    const video = videoRef.current;
+
+    if (!video) {
+      throw new Error("Video element is not ready.");
+    }
+
+    video.srcObject = stream;
+    await video.play();
+
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      await new Promise<void>((resolve) => {
+        video.onloadeddata = () => resolve();
+      });
     }
   }
 
@@ -79,6 +125,7 @@ export default function CameraView() {
     stopTracks();
     setStatus("stopped");
     setError(null);
+    setPose(null);
   }
 
   useEffect(() => {
@@ -118,14 +165,12 @@ export default function CameraView() {
 
   useEffect(() => {
     let cancelled = false;
-    let detector: PoseDetector | null = null;
 
     async function loadDetector() {
       try {
-        detector = await createPoseDetector();
+        const detector = await getPoseDetector();
 
         if (cancelled) {
-          detector.close();
           return;
         }
 
@@ -137,7 +182,11 @@ export default function CameraView() {
 
         if (!cancelled) {
           setPoseReady(false);
-          setPoseError("Could not load the pose model.");
+          setPoseError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load the pose model.",
+          );
         }
       }
     }
@@ -146,9 +195,6 @@ export default function CameraView() {
 
     return () => {
       cancelled = true;
-      detector?.close();
-      detectorRef.current = null;
-      setPoseReady(false);
     };
   }, []);
 
@@ -165,10 +211,13 @@ export default function CameraView() {
 
     const detectFrame = () => {
       const video = videoRef.current;
+      const canvas = canvasRef.current;
       const detector = detectorRef.current;
 
-      if (video && detector) {
+      if (video && canvas && detector) {
         const nextPose = detector.detectPose(video);
+        drawPose(canvas, video, nextPose);
+
         const now = performance.now();
 
         if (now - lastLoggedAt >= 400) {
@@ -194,14 +243,17 @@ export default function CameraView() {
   return (
     <section className="camera-card">
       <div className={`camera-frame${isLive ? " is-live" : ""}`}>
-        <video
-          ref={videoRef}
-          className="camera-video"
-          autoPlay
-          playsInline
-          muted
-          aria-label="Live webcam feed"
-        />
+        <div className="camera-stage">
+          <video
+            ref={videoRef}
+            className="camera-video"
+            autoPlay
+            playsInline
+            muted
+            aria-label="Live webcam feed"
+          />
+          <canvas ref={canvasRef} className="pose-overlay" aria-hidden="true" />
+        </div>
         {!isLive && (
           <div className="camera-placeholder">
             <p>
@@ -213,7 +265,7 @@ export default function CameraView() {
             </p>
           </div>
         )}
-        <span className="camera-badge">{isLive ? "Live" : "Idle"}</span>
+        <span className="camera-badge">{pose ? "Tracking" : isLive ? "Live" : "Idle"}</span>
       </div>
 
       {error && <p className="camera-error">{error}</p>}
@@ -221,7 +273,11 @@ export default function CameraView() {
 
       <div className="pose-log" aria-live="polite">
         <p className="pose-log-title">
-          {poseReady ? (pose ? "Pose landmarks" : "Looking for a person…") : "Loading pose model…"}
+          {!poseReady
+            ? "Loading pose model…"
+            : pose
+              ? "Pose landmarks"
+              : "Stand in frame so the camera can see your full body"}
         </p>
         {pose && (
           <pre className="pose-log-coords">
