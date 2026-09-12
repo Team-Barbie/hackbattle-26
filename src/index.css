@@ -133,30 +133,6 @@ body {
   grid-area: controls;
 }
 
-.exercise-picker {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.exercise-picker select {
-  min-width: 210px;
-  padding: 11px 38px 11px 16px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--raised);
-  color: #ececf4;
-  font: inherit;
-  font-size: 0.85rem;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
 .panel {
   display: flex;
   flex-direction: column;
@@ -540,17 +516,7 @@ button.step:hover:not(:disabled) {
       "controls";
   }
 
-  .control-bar button,
-  .exercise-picker {
+  .control-bar button {
     flex: 1 1 100%;
-  }
-
-  .exercise-picker {
-    justify-content: space-between;
-  }
-
-  .exercise-picker select {
-    min-width: 0;
-    flex: 1;
   }
 }
