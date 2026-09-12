@@ -126,7 +126,7 @@ function cameraErrorMessage(error: unknown): string {
 }
 
 function formatDegrees(value: number | null): string {
-  return value === null ? "—" : `${Math.round(value)}°`;
+  return value === null ? "·" : `${Math.round(value)}°`;
 }
 
 function stateLabel(state: MovementState | null): string {
@@ -147,7 +147,7 @@ function stateLabel(state: MovementState | null): string {
     ADJUST: "Adjust position",
   };
 
-  return state ? labels[state] : "—";
+  return state ? labels[state] : "·";
 }
 
 function visibleJoint(point: LandmarkPoint | null) {
@@ -990,7 +990,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   const metricDisplay =
     exerciseId === "custom"
       ? movementMetric === null
-        ? "—"
+        ? "·"
         : `${Math.round(movementMetric)}%`
       : exerciseId === "squat" || exerciseId === "knee-raise"
       ? formatDegrees(thighAngleDegrees(movementMetric))

@@ -175,7 +175,7 @@ export default function TherapistScreen({
                   }));
                   touch();
                 }}
-                placeholder="Optional — required at patient sign-in"
+                placeholder="Optional. Required at patient sign-in if set"
                 autoComplete="off"
               />
             </label>
