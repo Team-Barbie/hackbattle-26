@@ -28,6 +28,16 @@ export default function ControlBar({ session }: { session: SquatSession }) {
       >
         Skeleton: {session.showSkeleton ? "on" : "off"}
       </button>
+      <button
+        type="button"
+        className="secondary"
+        onClick={session.toggleAudio}
+        disabled={!session.audioSupported}
+        aria-pressed={session.audioEnabled}
+        title={session.audioSupported ? undefined : "Speech is not supported in this browser"}
+      >
+        Voice: {session.audioEnabled ? "on" : "off"}
+      </button>
     </div>
   );
 }
