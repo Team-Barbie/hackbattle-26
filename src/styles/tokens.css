@@ -35,6 +35,13 @@
   /* Small "live" signal dot, the only saturated color in the UI. */
   --signal: #3ddc71;
 
+  /* Glass - frosted surfaces for buttons and floating chrome */
+  --glass-blur: 18px;
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-sheen: rgba(255, 255, 255, 0.14);
+  --glass-tint: rgba(255, 255, 255, 0.07);
+  --glass-tint-strong: rgba(255, 255, 255, 0.12);
+
   /* Shape */
   --r-xs: 8px;
   --r-sm: 12px;
