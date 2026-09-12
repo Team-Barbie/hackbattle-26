@@ -525,17 +525,25 @@ export function useExerciseSession() {
           ? hasUpperBodyVisible(pose)
           : hasFullBodyVisible(pose);
 
-        if (personVisible && !jumped) {
-          lastFullBodyAt = now;
-          validBodySince ||= now;
-          lastStablePoseRef.current = pose;
+        if (personVisible) {
+          if (!jumped) {
+            lastFullBodyAt = now;
+            validBodySince ||= now;
 
-          if (now - validBodySince >= BODY_STABILITY_MS) {
-            bodyReady = true;
+            if (now - validBodySince >= BODY_STABILITY_MS) {
+              bodyReady = true;
+            }
+            if (bodyReady && now - validBodySince >= BODY_STABILITY_MS + COUNT_READY_MS) {
+              readyToCount = true;
+            }
           }
-          if (bodyReady && now - validBodySince >= BODY_STABILITY_MS + COUNT_READY_MS) {
-            readyToCount = true;
-          }
+
+          // Always refresh the comparison baseline on a visible frame, jumped or not.
+          // Otherwise one flagged frame freezes the reference pose while the person
+          // keeps moving, so every later frame drifts further from it and reads as
+          // "still jumping" until the grace period lapses and wipes the whole
+          // multi-second stability timer.
+          lastStablePoseRef.current = pose;
         } else if (lastFullBodyAt === 0 || now - lastFullBodyAt > FULL_BODY_GRACE_MS) {
           validBodySince = 0;
           bodyReady = false;
