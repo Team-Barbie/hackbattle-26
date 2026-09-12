@@ -49,7 +49,15 @@ export default function CameraPanel({ session }: { session: ExerciseSession }) {
         </div>
 
         <span className="camera-badge">
-          {tracking ? "Tracking" : isLive ? "Live" : "Idle"}
+          {session.poseError
+            ? "Model failed"
+            : !session.poseReady
+              ? "Loading model"
+              : tracking
+                ? "Tracking"
+                : isLive
+                  ? "Looking for you"
+                  : "Idle"}
         </span>
       </div>
     </section>

@@ -2,8 +2,8 @@ import type { ThighReading } from "../../biomechanics/thighElevation";
 
 export type KneeRaiseState = "FEET_DOWN" | "KNEE_UP";
 
-const FEET_DOWN_ELEVATION = 0.78;
-const KNEE_UP_ELEVATION = 0.35;
+const FEET_DOWN_ELEVATION = 0.84;
+const KNEE_UP_ELEVATION = 0.32;
 const CONFIDENCE_GAP = 0.15;
 
 export function kneeRaiseElevation(left: ThighReading, right: ThighReading): number | null {

@@ -66,7 +66,8 @@ export class LandmarkSmoother {
       x: this.filters[index].x.filter(landmark.x, timestamp),
       y: this.filters[index].y.filter(landmark.y, timestamp),
       z: this.filters[index].z.filter(landmark.z, timestamp),
-      visibility: landmark.visibility ?? 0,
+      visibility:
+        landmark.visibility === undefined || landmark.visibility === 0 ? 1 : landmark.visibility,
     }));
   }
 }

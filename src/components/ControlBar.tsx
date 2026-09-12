@@ -1,4 +1,3 @@
-import { EXERCISES, isExerciseId } from "../exercises/exerciseCatalog";
 import type { ExerciseSession } from "../hooks/useExerciseSession";
 
 export default function ControlBar({ session }: { session: ExerciseSession }) {
@@ -6,37 +5,30 @@ export default function ControlBar({ session }: { session: ExerciseSession }) {
 
   return (
     <div className="control-bar">
-      <label className="exercise-picker">
-        <span>Exercise</span>
-        <select
-          value={session.exerciseId}
-          onChange={(event) => {
-            if (isExerciseId(event.currentTarget.value)) {
-              session.selectExercise(event.currentTarget.value);
-            }
-          }}
-          aria-label="Choose exercise"
+      {session.exerciseId === "custom" &&
+        (session.recordingReference ? (
+          <button type="button" onClick={session.stopReferenceRecording}>
+            Stop and use ({session.referenceFrameCount})
+          </button>
+        ) : (
+          <button type="button" onClick={session.startReferenceRecording} disabled={!isLive}>
+            Record reference
+          </button>
+        ))}
+      {session.exerciseId === "custom" && session.referenceExercise && (
+        <button
+          type="button"
+          className="secondary"
+          onClick={session.clearReference}
+          disabled={session.recordingReference}
         >
-          {EXERCISES.map((exercise) => (
-            <option key={exercise.id} value={exercise.id}>
-              {exercise.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        type="button"
-        onClick={() => void session.startCamera()}
-        disabled={isLive || isBusy}
-      >
+          Clear reference
+        </button>
+      )}
+      <button type="button" onClick={() => void session.startCamera()} disabled={isLive || isBusy}>
         Start cam
       </button>
-      <button
-        type="button"
-        className="secondary"
-        onClick={session.stopCamera}
-        disabled={!isLive}
-      >
+      <button type="button" className="secondary" onClick={session.stopCamera} disabled={!isLive}>
         End cam
       </button>
       <button
@@ -56,6 +48,9 @@ export default function ControlBar({ session }: { session: ExerciseSession }) {
         title={session.audioSupported ? undefined : "Speech is not supported in this browser"}
       >
         Voice: {session.audioEnabled ? "on" : "off"}
+      </button>
+      <button type="button" className="secondary" onClick={session.restartPlan}>
+        Restart plan
       </button>
     </div>
   );
