@@ -3,8 +3,9 @@ import type { ThighReading } from "../../biomechanics/thighElevation";
 export type SquatState = "UP" | "DOWN";
 
 /** Thigh elevation, where 1 is standing upright and 0 is thighs parallel. */
-export const SQUAT_STANDING_ELEVATION = 0.8;
-export const SQUAT_BOTTOM_ELEVATION = 0.35;
+export const SQUAT_STANDING_ELEVATION = 0.86;
+/** Enter DOWN once the squat has clearly started — shallow reps still count. */
+export const SQUAT_BOTTOM_ELEVATION = 0.5;
 
 /** Past this visibility gap the better-tracked leg is trusted on its own. */
 const CONFIDENCE_GAP = 0.15;
@@ -41,8 +42,8 @@ export function combineThighElevations(
 }
 
 /**
- * Hysteresis keeps the mid-range from flickering: stand up past 0.8 to become
- * UP, sink below 0.35 to become DOWN.
+ * Hysteresis keeps the mid-range from flickering: stand up past 0.86 to become
+ * UP, sink below 0.50 to become DOWN. Depth quality is judged separately.
  */
 export function detectSquatState(
   elevation: number | null,

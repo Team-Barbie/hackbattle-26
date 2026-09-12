@@ -14,16 +14,22 @@ export type SquatCounter = {
   reset: () => void;
 };
 
+const STAND_HOLD_MS = 260;
+const BOTTOM_HOLD_MS = 220;
+/** Loose enough that a shallow attempt still completes a rep. */
+const MIN_DEPTH = 0.62;
+
 /**
- * A rep lands on the DOWN → UP edge only. Squat state hysteresis handles
- * landmark flicker, so requiring an additional bottom hold would reject normal,
- * continuous reps after the already-smoothed pose crosses the depth threshold.
+ * A rep needs a held stand, a held bottom deeper than MIN_DEPTH, then a stand.
+ * Landmark flicker that kisses DOWN for a frame does not count.
  */
 export function createSquatCounter(): SquatCounter {
   let previous: SquatState | null = null;
+  let phaseSince = 0;
   let deepest = Number.POSITIVE_INFINITY;
   let reps: SquatRep[] = [];
-  let startedFromUp = false;
+  let stoodLongEnough = false;
+  let bottomQualified = false;
 
   return {
     get reps() {
@@ -32,36 +38,53 @@ export function createSquatCounter(): SquatCounter {
     get count() {
       return reps.length;
     },
-    update(state, elevation, _now) {
-      if (startedFromUp && elevation !== null) {
-        deepest = Math.min(deepest, elevation);
+    update(state, elevation, now) {
+      if (state === null) {
+        return null;
       }
 
-      let completed: SquatRep | null = null;
+      if (state !== previous) {
+        let completed: SquatRep | null = null;
 
-      if (previous === "DOWN" && state === "UP" && startedFromUp) {
-        completed = {
-          index: reps.length + 1,
-          deepestElevation: Number.isFinite(deepest) ? deepest : null,
-        };
-        reps = [...reps, completed];
-        deepest = Number.POSITIVE_INFINITY;
-      }
+        if (previous === "DOWN" && state === "UP" && stoodLongEnough && bottomQualified) {
+          completed = {
+            index: reps.length + 1,
+            deepestElevation: Number.isFinite(deepest) ? deepest : null,
+          };
+          reps = [...reps, completed];
+        }
 
-      if (state === "UP") {
-        startedFromUp = true;
-      }
-
-      if (state !== null) {
         previous = state;
+        phaseSince = now;
+        bottomQualified = false;
+        deepest = Number.POSITIVE_INFINITY;
+
+        if (state === "DOWN" && elevation !== null) {
+          deepest = elevation;
+        }
+
+        return completed;
       }
 
-      return completed;
+      if (state === "UP" && now - phaseSince >= STAND_HOLD_MS) {
+        stoodLongEnough = true;
+      }
+
+      if (state === "DOWN" && elevation !== null) {
+        deepest = Math.min(deepest, elevation);
+        if (now - phaseSince >= BOTTOM_HOLD_MS && deepest <= MIN_DEPTH) {
+          bottomQualified = true;
+        }
+      }
+
+      return null;
     },
     cancelCurrentRep() {
       previous = null;
+      phaseSince = 0;
       deepest = Number.POSITIVE_INFINITY;
-      startedFromUp = false;
+      stoodLongEnough = false;
+      bottomQualified = false;
     },
     reset() {
       this.cancelCurrentRep();

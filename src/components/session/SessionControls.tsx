@@ -13,14 +13,13 @@ export default function SessionControls({ session, onRestartPlan, className }: P
 
   return (
     <section
-      className={`card card--tight${className ? ` ${className}` : ""}`}
+      className={`card${className ? ` ${className}` : ""}`}
       aria-label="Session controls"
     >
-      <p className="card__title">Controls</p>
+      <h2 className="section-title">Controls</h2>
 
       {isCustom && recordingReference && (
         <p className="recording-banner">
-          <i className="dot dot--pulse" />
           Recording reference · {session.referenceFrameCount} frames
         </p>
       )}
@@ -107,6 +106,16 @@ export default function SessionControls({ session, onRestartPlan, className }: P
         >
           <Icon name="reset" />
           Reset exercise
+        </button>
+
+        <button
+          type="button"
+          className="btn btn--sm btn--outline"
+          onClick={session.skipStep}
+          disabled={recordingReference || !session.nextStep}
+        >
+          <Icon name="forward" />
+          Skip exercise
         </button>
 
         <button

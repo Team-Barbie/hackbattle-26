@@ -1,8 +1,10 @@
 import type { ExerciseId } from "../exercises/exerciseCatalog";
+import type { FormIssue } from "../exercises/formIssues";
+import { correctionFor, issueLabel } from "./feedback";
 
 export type MoveDirection = "descending" | "ascending" | "still";
 
-export type CueTone = "wait" | "down" | "up" | "hold";
+export type CueTone = "wait" | "down" | "up" | "hold" | "correct";
 
 export type Cue = {
   headline: string;
@@ -19,6 +21,7 @@ export type CueInput = {
   repsTarget: number;
   nextExerciseName?: string | null;
   sessionComplete?: boolean;
+  primaryIssue?: FormIssue | null;
 };
 
 const WAIT_IN_FRAME: Record<ExerciseId, Cue> = {
@@ -54,6 +57,25 @@ const WAIT_IN_FRAME: Record<ExerciseId, Cue> = {
   },
 };
 
+function isRestingForCue(
+  exerciseId: ExerciseId,
+  state: string | null,
+  direction: MoveDirection,
+): boolean {
+  if (exerciseId === "squat") {
+    return state === "UP" && direction !== "descending";
+  }
+
+  return (
+    state === "ARMS_DOWN" ||
+    state === "FEET_DOWN" ||
+    state === "LATERAL_DOWN" ||
+    state === "ARMS_EXTENDED" ||
+    state === "ADJUST" ||
+    state === "MATCHED"
+  );
+}
+
 export function nextCue({
   exerciseId,
   tracking,
@@ -63,6 +85,7 @@ export function nextCue({
   repsTarget,
   nextExerciseName = null,
   sessionComplete = false,
+  primaryIssue = null,
 }: CueInput): Cue {
   if (!tracking) {
     return WAIT_IN_FRAME[exerciseId];
@@ -83,6 +106,15 @@ export function nextCue({
         ? `That's ${repsDone} reps. Next: ${nextExerciseName}.`
         : `That's ${repsDone} reps. Stay ready for the next exercise.`,
       tone: "wait",
+    };
+  }
+
+  if (primaryIssue && isRestingForCue(exerciseId, state, direction)) {
+    const correction = correctionFor(primaryIssue);
+    return {
+      headline: correction.headline,
+      detail: `${issueLabel(primaryIssue)}. ${correction.detail}`,
+      tone: "correct",
     };
   }
 
@@ -134,7 +166,7 @@ export function nextCue({
     if (state === "LATERAL_UP") {
       return {
         headline: "Lower slowly",
-        detail: "Control the way down. Don't drop the arms.",
+        detail: "Control the way down — don't drop the arms.",
         tone: "down",
       };
     }
@@ -215,7 +247,7 @@ export function nextCue({
         }
       : {
           headline: "Go down",
-          detail: "Start the rep: bend the knees and sit back, slow and controlled.",
+          detail: "Start the rep — bend the knees and sit back, slow and controlled.",
           tone: "down",
         };
   }

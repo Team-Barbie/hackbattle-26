@@ -21,15 +21,21 @@ export class RollingAverage {
   }
 }
 
-/** Smooths a metric and drops single-frame spikes that are not real motion. */
+/**
+ * Smooths a metric and drops single-frame spikes. Sustained travel past
+ * `maxJump` is treated as real motion so a fast squat cannot freeze the filter.
+ */
 export class MetricFilter {
   private readonly average: RollingAverage;
   private readonly maxJump: number;
+  private readonly jumpConfirmations: number;
   private last: number | null = null;
   private misses = 0;
+  private pendingJumps = 0;
 
-  constructor(maxJump: number, size = 6) {
+  constructor(maxJump: number, size = 6, jumpConfirmations = 3) {
     this.maxJump = maxJump;
+    this.jumpConfirmations = jumpConfirmations;
     this.average = new RollingAverage(size);
   }
 
@@ -37,6 +43,7 @@ export class MetricFilter {
     this.average.reset();
     this.last = null;
     this.misses = 0;
+    this.pendingJumps = 0;
   }
 
   push(value: number | null): number | null {
@@ -52,9 +59,13 @@ export class MetricFilter {
     this.misses = 0;
 
     if (this.last !== null && Math.abs(value - this.last) > this.maxJump) {
-      return this.last;
+      this.pendingJumps += 1;
+      if (this.pendingJumps < this.jumpConfirmations) {
+        return this.last;
+      }
     }
 
+    this.pendingJumps = 0;
     const smoothed = this.average.push(value);
     this.last = smoothed;
     return smoothed;
