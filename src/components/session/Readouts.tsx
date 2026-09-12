@@ -3,7 +3,7 @@ import { issueLabel } from "../../coaching/feedback";
 import type { ExerciseSession } from "../../hooks/useExerciseSession";
 
 function formatDegrees(value: number | null): string {
-  return value === null ? "—" : `${Math.round(value)}°`;
+  return value === null ? "·" : `${Math.round(value)}°`;
 }
 
 export default function Readouts({ session }: { session: ExerciseSession }) {

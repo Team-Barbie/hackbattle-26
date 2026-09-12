@@ -902,6 +902,80 @@
   font-size: 0.76rem;
 }
 
+/* ---------- Generic row / list primitives (therapist studio) ---------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.list > li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.list > li:last-child {
+  border-bottom: 0;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.row--leading,
+.row--indexed {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.row__index {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.row__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.row__sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.row__end {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ring-sm {
+  position: relative;
+  flex-shrink: 0;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 900px) {

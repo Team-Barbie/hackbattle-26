@@ -166,7 +166,7 @@ export function nextCue({
     if (state === "LATERAL_UP") {
       return {
         headline: "Lower slowly",
-        detail: "Control the way down — don't drop the arms.",
+        detail: "Control the way down. Don't drop the arms.",
         tone: "down",
       };
     }
@@ -247,7 +247,7 @@ export function nextCue({
         }
       : {
           headline: "Go down",
-          detail: "Start the rep — bend the knees and sit back, slow and controlled.",
+          detail: "Start the rep: bend the knees and sit back, slow and controlled.",
           tone: "down",
         };
   }

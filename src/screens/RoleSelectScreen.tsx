@@ -33,12 +33,15 @@ export default function RoleSelectScreen({ onSelectRole }: Props) {
           <span className="role-card__cta">Continue →</span>
         </button>
 
-        <button type="button" className="role-card is-disabled" disabled>
+        <button type="button" className="role-card" onClick={() => onSelectRole("therapist")}>
           <span className="role-card__icon">
             <Icon name="therapist" />
           </span>
           <span className="role-card__name">I'm a therapist</span>
-          <span className="role-card__desc">Coming soon. Assign plans and review progress.</span>
+          <span className="role-card__desc">
+            Build the plan, share it with your patient, and review their sessions.
+          </span>
+          <span className="role-card__cta">Open studio →</span>
         </button>
       </div>
 
