@@ -4,11 +4,13 @@ import Icon from "../components/Icon";
 import ProgressRing from "../components/ProgressRing";
 import { exerciseGuides } from "../coaching/exerciseGuide";
 import { formatDay, formatDuration, shortExerciseName } from "../content/exerciseMeta";
-import { EXERCISES, exerciseName, isExerciseId, type ExerciseId } from "../exercises/exerciseCatalog";
+import { EXERCISES, isExerciseId, type ExerciseId } from "../exercises/exerciseCatalog";
+import { loadReferenceExercise } from "../exercises/custom/referenceExercise";
 import {
   DEFAULT_PRESCRIPTION,
   clonePrescription,
   createPlanStep,
+  planStepName,
   type PlanStep,
   type Prescription,
 } from "../exercises/prescription";
@@ -24,11 +26,13 @@ import { totalPrescribedReps, type StoredPrescription } from "../state/prescript
 
 type Props = {
   stored: StoredPrescription;
+  initialDraft?: Prescription;
   patient: PatientProfile | null;
   onPublish: (plan: Prescription) => void;
   onResetToDefault: () => void;
   onBack: () => void;
   onPreviewAsPatient: () => void;
+  onRecordCustomExercise: (draft: Prescription) => void;
 };
 
 const MIN_REPS = 1;
@@ -46,22 +50,32 @@ function samePlan(a: Prescription, b: Prescription): boolean {
     a.steps.every(
       (step, index) =>
         step.exerciseId === b.steps[index].exerciseId &&
-        step.targetReps === b.steps[index].targetReps,
+        step.targetReps === b.steps[index].targetReps &&
+        step.referenceExercise?.recordedAt === b.steps[index].referenceExercise?.recordedAt,
     )
   );
 }
 
 export default function TherapistScreen({
   stored,
+  initialDraft,
   patient,
   onPublish,
   onResetToDefault,
   onBack,
   onPreviewAsPatient,
+  onRecordCustomExercise,
 }: Props) {
-  const [draft, setDraft] = useState<Prescription>(() => clonePrescription(stored.plan));
+  const [draft, setDraft] = useState<Prescription>(() =>
+    clonePrescription(initialDraft ?? stored.plan),
+  );
   const [justPublished, setJustPublished] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const customExercise =
+    loadReferenceExercise() ??
+    draft.steps.find((step) => step.exerciseId === "custom")?.referenceExercise ??
+    null;
+  const exerciseOptions = EXERCISES.filter((exercise) => exercise.id !== "custom");
   const dirty =
     !samePlan(draft, stored.plan) || (draft.accessCode ?? "") !== (stored.plan.accessCode ?? "");
 
@@ -98,7 +112,11 @@ export default function TherapistScreen({
   }
 
   function addStep(exerciseId: ExerciseId) {
-    setDraft((current) => ({ ...current, steps: [...current.steps, createPlanStep(exerciseId)] }));
+    const reference = exerciseId === "custom" ? customExercise ?? undefined : undefined;
+    setDraft((current) => ({
+      ...current,
+      steps: [...current.steps, createPlanStep(exerciseId, 8, reference)],
+    }));
     touch();
   }
 
@@ -205,19 +223,27 @@ export default function TherapistScreen({
                       value={step.exerciseId}
                       onChange={(event) => {
                         if (isExerciseId(event.currentTarget.value)) {
-                          patchStep(step.id, { exerciseId: event.currentTarget.value });
+                          const exerciseId = event.currentTarget.value;
+                          patchStep(step.id, {
+                            exerciseId,
+                            referenceExercise:
+                              exerciseId === "custom" ? customExercise ?? undefined : undefined,
+                          });
                         }
                       }}
                     >
-                      {EXERCISES.map((exercise) => (
+                      {exerciseOptions.map((exercise) => (
                         <option key={exercise.id} value={exercise.id}>
                           {exercise.name}
                         </option>
                       ))}
+                      {customExercise && (
+                        <option value="custom">{customExercise.name}</option>
+                      )}
                     </select>
                   </label>
 
-                  <div className="stepper" role="group" aria-label={`Reps for ${exerciseName(step.exerciseId)}`}>
+                  <div className="stepper" role="group" aria-label={`Reps for ${planStepName(step)}`}>
                     <button
                       type="button"
                       onClick={() => patchStep(step.id, { targetReps: clampReps(step.targetReps - 1) })}
@@ -277,7 +303,7 @@ export default function TherapistScreen({
               Add exercise
             </p>
             <div className="picker">
-              {EXERCISES.map((exercise) => (
+              {exerciseOptions.map((exercise) => (
                 <button
                   type="button"
                   key={exercise.id}
@@ -289,6 +315,26 @@ export default function TherapistScreen({
                   {exercise.name}
                 </button>
               ))}
+              {customExercise && (
+                <button
+                  type="button"
+                  className="picker__chip"
+                  onClick={() => addStep("custom")}
+                  title="Therapist-recorded movement"
+                >
+                  <Icon name="plus" />
+                  {customExercise.name}
+                </button>
+              )}
+              <button
+                type="button"
+                className="picker__chip"
+                onClick={() => onRecordCustomExercise(clonePrescription(draft))}
+                title="Record one reference repetition with the camera"
+              >
+                <Icon name="record" />
+                {customExercise ? "Record another custom exercise" : "Record custom exercise"}
+              </button>
             </div>
           </div>
 
@@ -355,7 +401,10 @@ export default function TherapistScreen({
                       <p className="row__sub">
                         {formatDuration(session.durationMs)} ·{" "}
                         {session.steps
-                          .map((step) => `${shortExerciseName(step.exerciseId)} ${step.reps}/${step.targetReps}`)
+                          .map(
+                            (step) =>
+                              `${step.exerciseName ?? shortExerciseName(step.exerciseId)} ${step.reps}/${step.targetReps}`,
+                          )
                           .join(", ")}
                       </p>
                     </div>
@@ -374,7 +423,7 @@ export default function TherapistScreen({
               {stored.plan.steps.map((step, index) => (
                 <li key={step.id} className="row row--indexed">
                   <span className="row__index">{index + 1}</span>
-                  <span className="row__title">{exerciseName(step.exerciseId)}</span>
+                  <span className="row__title">{planStepName(step)}</span>
                   <span className="row__end">{step.targetReps} reps</span>
                 </li>
               ))}

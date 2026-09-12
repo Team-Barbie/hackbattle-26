@@ -1,5 +1,4 @@
-import { shortExerciseName } from "../../content/exerciseMeta";
-import { stepStatus } from "../../exercises/prescription";
+import { planStepName, stepStatus } from "../../exercises/prescription";
 import type { ExerciseSession } from "../../hooks/useExerciseSession";
 import Icon from "../Icon";
 
@@ -30,7 +29,7 @@ export default function StepRail({ session, repsByStep }: Props) {
               <span className={`index-bubble is-${status}`}>
                 {status === "done" ? <Icon name="check" width={14} height={14} /> : index + 1}
               </span>
-              <span className="step-rail__name">{shortExerciseName(step.exerciseId)}</span>
+              <span className="step-rail__name">{planStepName(step)}</span>
               <span className="step-rail__reps">
                 {status === "queued" ? `×${step.targetReps}` : `${done}/${step.targetReps}`}
               </span>

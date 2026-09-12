@@ -1,3 +1,5 @@
+import { useState, type FormEvent } from "react";
+import type { ReferenceExercise } from "../../exercises/custom/referenceExercise";
 import type { ExerciseSession } from "../../hooks/useExerciseSession";
 import Icon from "../Icon";
 
@@ -5,11 +7,29 @@ type Props = {
   session: ExerciseSession;
   onRestartPlan: () => void;
   className?: string;
+  allowReferenceAuthoring?: boolean;
+  onReferenceSaved?: (reference: ReferenceExercise) => void;
 };
 
-export default function SessionControls({ session, onRestartPlan, className }: Props) {
+export default function SessionControls({
+  session,
+  onRestartPlan,
+  className,
+  allowReferenceAuthoring = false,
+  onReferenceSaved,
+}: Props) {
   const { isLive, isBusy, exerciseId, recordingReference } = session;
   const isCustom = exerciseId === "custom";
+  const [referenceName, setReferenceName] = useState("");
+
+  function handleSaveReference(event: FormEvent) {
+    event.preventDefault();
+    const saved = session.savePendingReference(referenceName);
+
+    if (saved) {
+      onReferenceSaved?.(saved);
+    }
+  }
 
   return (
     <section
@@ -25,7 +45,7 @@ export default function SessionControls({ session, onRestartPlan, className }: P
       )}
 
       <div className="controls">
-        {isCustom &&
+        {isCustom && allowReferenceAuthoring &&
           (recordingReference ? (
             <button
               type="button"
@@ -47,7 +67,27 @@ export default function SessionControls({ session, onRestartPlan, className }: P
             </button>
           ))}
 
-        {isCustom && session.referenceExercise && (
+        {isCustom && allowReferenceAuthoring && session.pendingReference && (
+          <form className="reference-name" onSubmit={handleSaveReference}>
+            <label className="field">
+              <span>Exercise name</span>
+              <input
+                value={referenceName}
+                onChange={(event) => setReferenceName(event.currentTarget.value)}
+                placeholder="e.g. Seated ankle rotation"
+                maxLength={60}
+                autoFocus
+                required
+              />
+            </label>
+            <button type="submit" className="btn btn--sm" disabled={!referenceName.trim()}>
+              <Icon name="check" />
+              Save exercise
+            </button>
+          </form>
+        )}
+
+        {isCustom && allowReferenceAuthoring && session.referenceExercise && !session.pendingReference && (
           <button
             type="button"
             className="btn btn--sm btn--outline btn--span"

@@ -3,6 +3,7 @@ import TabBar, { type PatientTab } from "./components/TabBar";
 import type { ExerciseId } from "./exercises/exerciseCatalog";
 import { exerciseName } from "./exercises/exerciseCatalog";
 import { codesMatch, createPlanStep, type Prescription } from "./exercises/prescription";
+import { loadReferenceExercise } from "./exercises/custom/referenceExercise";
 import ExerciseDetailScreen from "./screens/ExerciseDetailScreen";
 import HomeScreen from "./screens/HomeScreen";
 import LoginScreen from "./screens/LoginScreen";
@@ -34,7 +35,8 @@ import {
 type Route =
   | { name: "role" }
   | { name: "login" }
-  | { name: "therapist" }
+  | { name: "therapist"; draft?: Prescription }
+  | { name: "therapist-record"; draft: Prescription }
   | { name: "home" }
   | { name: "program" }
   | { name: "exercise"; exerciseId: ExerciseId }
@@ -57,8 +59,22 @@ function practicePlan(exerciseId: ExerciseId, source: Prescription): Prescriptio
 
   return {
     therapist: source.therapist,
-    title: `Practice: ${exerciseName(exerciseId)}`,
-    steps: [createPlanStep(exerciseId, prescribed?.targetReps ?? 8)],
+    title: `Practice: ${prescribed?.referenceExercise?.name ?? exerciseName(exerciseId)}`,
+    steps: [
+      createPlanStep(
+        exerciseId,
+        prescribed?.targetReps ?? 8,
+        prescribed?.referenceExercise,
+      ),
+    ],
+  };
+}
+
+function referenceRecordingPlan(source: Prescription): Prescription {
+  return {
+    therapist: source.therapist,
+    title: "Record a custom exercise",
+    steps: [createPlanStep("custom", 1, loadReferenceExercise() ?? undefined)],
   };
 }
 
@@ -146,11 +162,35 @@ export default function App() {
     return (
       <TherapistScreen
         stored={stored}
+        initialDraft={route.draft}
         patient={profile}
         onPublish={handlePublish}
         onResetToDefault={handleResetPrescription}
         onBack={() => go({ name: "role" })}
         onPreviewAsPatient={() => go(profile ? { name: "home" } : { name: "login" })}
+        onRecordCustomExercise={(draft) => go({ name: "therapist-record", draft })}
+      />
+    );
+  }
+
+  if (route.name === "therapist-record") {
+    return (
+      <SessionScreen
+        plan={referenceRecordingPlan(route.draft)}
+        referenceAuthoring
+        onReferenceSaved={(referenceExercise) =>
+          go({
+            name: "therapist",
+            draft: {
+              ...route.draft,
+              steps: route.draft.steps.map((step) =>
+                step.exerciseId === "custom" ? { ...step, referenceExercise } : step,
+              ),
+            },
+          })
+        }
+        onFinish={() => go({ name: "therapist", draft: route.draft })}
+        onExit={() => go({ name: "therapist", draft: route.draft })}
       />
     );
   }

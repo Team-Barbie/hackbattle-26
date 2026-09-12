@@ -2,7 +2,7 @@ import Icon from "../components/Icon";
 import { exerciseArea, exerciseFraming, exerciseMonogram } from "../content/exerciseMeta";
 import { exerciseGuides } from "../coaching/exerciseGuide";
 import { EXERCISES, type ExerciseId } from "../exercises/exerciseCatalog";
-import type { Prescription } from "../exercises/prescription";
+import { planStepName, type Prescription } from "../exercises/prescription";
 import { totalPrescribedReps } from "../state/prescriptionStore";
 
 type Props = {
@@ -13,7 +13,9 @@ type Props = {
 
 export default function ProgramScreen({ plan, onOpenExercise, onStartSession }: Props) {
   const prescribed = new Set(plan.steps.map((step) => step.exerciseId));
-  const library = EXERCISES.filter((exercise) => !prescribed.has(exercise.id));
+  const library = EXERCISES.filter(
+    (exercise) => exercise.id !== "custom" && !prescribed.has(exercise.id),
+  );
 
   return (
     <div className="screen page">
@@ -41,7 +43,7 @@ export default function ProgramScreen({ plan, onOpenExercise, onStartSession }: 
                 <span className="exercise-tile__glyph">{exerciseMonogram(step.exerciseId)}</span>
                 <span>
                   <span className="exercise-tile__name">
-                    {index + 1}. {exerciseGuides[step.exerciseId].name}
+                    {index + 1}. {planStepName(step)}
                   </span>
                   <span className="exercise-tile__sub">
                     {exerciseArea(step.exerciseId)} · {exerciseFraming(step.exerciseId)}

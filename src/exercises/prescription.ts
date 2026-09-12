@@ -1,9 +1,12 @@
 import { EXERCISES, type ExerciseId } from "./exerciseCatalog";
+import type { ReferenceExercise } from "./custom/referenceExercise";
 
 export type PlanStep = {
   id: string;
   exerciseId: ExerciseId;
   targetReps: number;
+  /** Therapist-authored movement used when exerciseId is custom. */
+  referenceExercise?: ReferenceExercise;
 };
 
 export type Prescription = {
@@ -27,12 +30,23 @@ export const DEFAULT_PRESCRIPTION: Prescription = {
   ],
 };
 
-export function createPlanStep(exerciseId: ExerciseId = EXERCISES[0].id, targetReps = 8): PlanStep {
+export function createPlanStep(
+  exerciseId: ExerciseId = EXERCISES[0].id,
+  targetReps = 8,
+  referenceExercise?: ReferenceExercise,
+): PlanStep {
   return {
     id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     exerciseId,
     targetReps,
+    ...(exerciseId === "custom" && referenceExercise ? { referenceExercise } : {}),
   };
+}
+
+export function planStepName(step: Pick<PlanStep, "exerciseId" | "referenceExercise">): string {
+  return step.exerciseId === "custom" && step.referenceExercise?.name
+    ? step.referenceExercise.name
+    : EXERCISES.find((exercise) => exercise.id === step.exerciseId)?.name ?? step.exerciseId;
 }
 
 export function clonePrescription(plan: Prescription): Prescription {
