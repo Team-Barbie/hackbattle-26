@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import TabBar, { type PatientTab } from "./components/TabBar";
+import type { ExerciseId } from "./exercises/exerciseCatalog";
+import { exerciseName } from "./exercises/exerciseCatalog";
+import { createPlanStep, type Prescription } from "./exercises/prescription";
 import ExerciseDetailScreen from "./screens/ExerciseDetailScreen";
 import HomeScreen from "./screens/HomeScreen";
 import LoginScreen from "./screens/LoginScreen";
@@ -8,148 +11,251 @@ import ProgramScreen from "./screens/ProgramScreen";
 import ProgressScreen from "./screens/ProgressScreen";
 import ReadinessScreen from "./screens/ReadinessScreen";
 import RoleSelectScreen, { type Role } from "./screens/RoleSelectScreen";
-import SessionScreen from "./screens/SessionScreen";
+import SessionScreen, { type SessionOutcome } from "./screens/SessionScreen";
 import SessionSummaryScreen from "./screens/SessionSummaryScreen";
+import TherapistScreen from "./screens/TherapistScreen";
 import {
   clearPatientProfile,
+  clearSessionHistory,
   createPatientProfile,
   loadPatientProfile,
   recordSession,
   type PatientProfile,
+  type SessionRecord,
 } from "./state/patientProfile";
+import {
+  loadStoredPrescription,
+  publishPrescription,
+  resetPrescription,
+  type StoredPrescription,
+} from "./state/prescriptionStore";
 
-type Screen =
-  | "role"
-  | "login"
-  | "home"
-  | "program"
-  | "exerciseDetail"
-  | "progress"
-  | "profile"
-  | "readiness"
-  | "session"
-  | "summary";
+type Route =
+  | { name: "role" }
+  | { name: "login" }
+  | { name: "therapist" }
+  | { name: "home" }
+  | { name: "program" }
+  | { name: "exercise"; exerciseId: ExerciseId }
+  | { name: "progress" }
+  | { name: "profile" }
+  | { name: "readiness"; plan: Prescription }
+  | { name: "session"; plan: Prescription; readiness: number | null }
+  | { name: "summary"; record: SessionRecord };
 
-type SessionResult = { reps: number; target: number };
-
-const TAB_SCREENS: Partial<Record<Screen, PatientTab>> = {
+const TAB_FOR_ROUTE: Partial<Record<Route["name"], PatientTab>> = {
   home: "home",
   program: "program",
-  exerciseDetail: "program",
+  exercise: "program",
   progress: "progress",
   profile: "profile",
 };
 
+function practicePlan(exerciseId: ExerciseId, source: Prescription): Prescription {
+  const prescribed = source.steps.find((step) => step.exerciseId === exerciseId);
+
+  return {
+    therapist: source.therapist,
+    title: `Practice: ${exerciseName(exerciseId)}`,
+    steps: [createPlanStep(exerciseId, prescribed?.targetReps ?? 8)],
+  };
+}
+
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("role");
-  const [profile, setProfile] = useState<PatientProfile | null>(null);
-  const [lastResult, setLastResult] = useState<SessionResult | null>(null);
-  const [pendingReadiness, setPendingReadiness] = useState<number | null>(null);
+  const [profile, setProfile] = useState<PatientProfile | null>(() => loadPatientProfile());
+  const [stored, setStored] = useState<StoredPrescription>(() => loadStoredPrescription());
+  const [route, setRoute] = useState<Route>(() =>
+    loadPatientProfile() ? { name: "home" } : { name: "role" },
+  );
 
-  useEffect(() => {
-    const existing = loadPatientProfile();
+  const plan = stored.plan;
 
-    if (existing) {
-      setProfile(existing);
-      setScreen("home");
-    }
+  const go = useCallback((next: Route) => {
+    setRoute(next);
+    window.scrollTo({ top: 0 });
   }, []);
 
   function handleSelectRole(role: Role) {
-    if (role === "patient") {
-      setScreen("login");
+    if (role === "therapist") {
+      go({ name: "therapist" });
+      return;
     }
+
+    go(profile ? { name: "home" } : { name: "login" });
   }
 
   function handleLogin(name: string) {
     setProfile(createPatientProfile(name));
-    setScreen("home");
+    go({ name: "home" });
   }
 
   function handleSwitchUser() {
     clearPatientProfile();
     setProfile(null);
-    setScreen("role");
+    go({ name: "role" });
   }
 
-  function handleReadinessContinue(readiness: number | null) {
-    setPendingReadiness(readiness);
-    setScreen("session");
+  function handleClearHistory() {
+    if (!profile) {
+      return;
+    }
+
+    if (window.confirm("Clear every logged session on this device? This can't be undone.")) {
+      setProfile(clearSessionHistory(profile));
+    }
   }
 
-  function handleFinishSession(reps: number, target: number) {
-    setProfile((current) => {
-      if (!current) {
-        return current;
-      }
+  function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
+    if (!profile) {
+      go({ name: "role" });
+      return;
+    }
 
-      return recordSession(current, {
-        date: new Date().toISOString(),
-        reps,
-        target,
-        readiness: pendingReadiness,
-      });
+    const updated = recordSession(profile, {
+      date: new Date().toISOString(),
+      planTitle: sessionPlan.title,
+      therapist: sessionPlan.therapist,
+      readiness,
+      durationMs: outcome.durationMs,
+      steps: outcome.steps,
     });
-    setLastResult({ reps, target });
-    setScreen("summary");
+
+    setProfile(updated);
+    go({ name: "summary", record: updated.sessions[updated.sessions.length - 1] });
   }
 
-  if (screen === "login") {
-    return <LoginScreen onLogin={handleLogin} onBack={() => setScreen("role")} />;
+  function handlePublish(nextPlan: Prescription) {
+    setStored(publishPrescription(nextPlan));
   }
 
-  if (screen === "role" || !profile) {
+  function handleResetPrescription() {
+    setStored(resetPrescription());
+  }
+
+  /* ---------- therapist + auth routes ---------- */
+
+  if (route.name === "therapist") {
+    return (
+      <TherapistScreen
+        stored={stored}
+        patient={profile}
+        onPublish={handlePublish}
+        onResetToDefault={handleResetPrescription}
+        onBack={() => go({ name: "role" })}
+        onPreviewAsPatient={() => go(profile ? { name: "home" } : { name: "login" })}
+      />
+    );
+  }
+
+  if (route.name === "login") {
+    return (
+      <LoginScreen
+        therapistName={plan.therapist}
+        onLogin={handleLogin}
+        onBack={() => go({ name: "role" })}
+      />
+    );
+  }
+
+  if (route.name === "role" || !profile) {
     return <RoleSelectScreen onSelectRole={handleSelectRole} />;
   }
 
-  if (screen === "readiness") {
+  /* ---------- session flow (no tab bar) ---------- */
+
+  if (route.name === "readiness") {
+    const sessionPlan = route.plan;
+
     return (
       <ReadinessScreen
-        onContinue={handleReadinessContinue}
-        onBack={() => setScreen("home")}
+        plan={sessionPlan}
+        onContinue={(readiness) => go({ name: "session", plan: sessionPlan, readiness })}
+        onBack={() => go({ name: "home" })}
       />
     );
   }
 
-  if (screen === "session") {
+  if (route.name === "session") {
+    const { plan: sessionPlan, readiness } = route;
+
     return (
-      <SessionScreen onFinish={handleFinishSession} onBack={() => setScreen("home")} />
+      <SessionScreen
+        key={sessionPlan.title}
+        plan={sessionPlan}
+        onFinish={(outcome) => handleFinishSession(outcome, sessionPlan, readiness)}
+        onExit={() => go({ name: "home" })}
+      />
     );
   }
 
-  if (screen === "summary" && lastResult) {
+  if (route.name === "summary") {
     return (
       <SessionSummaryScreen
-        reps={lastResult.reps}
-        target={lastResult.target}
-        onDone={() => setScreen("home")}
+        record={route.record}
+        profile={profile}
+        onDone={() => go({ name: "home" })}
+        onViewProgress={() => go({ name: "progress" })}
       />
     );
   }
 
-  const activeTab = TAB_SCREENS[screen] ?? "home";
+  /* ---------- patient tabs ---------- */
 
-  let page = <HomeScreen profile={profile} onStartSession={() => setScreen("readiness")} />;
+  const startPrescribed = () => go({ name: "readiness", plan });
+  let page: ReactNode;
 
-  if (screen === "program") {
-    page = <ProgramScreen onOpenSquat={() => setScreen("exerciseDetail")} />;
-  } else if (screen === "exerciseDetail") {
-    page = (
-      <ExerciseDetailScreen
-        onBack={() => setScreen("program")}
-        onStartSession={() => setScreen("readiness")}
-      />
-    );
-  } else if (screen === "progress") {
-    page = <ProgressScreen profile={profile} />;
-  } else if (screen === "profile") {
-    page = <ProfileScreen profile={profile} onSwitchUser={handleSwitchUser} />;
+  switch (route.name) {
+    case "program":
+      page = (
+        <ProgramScreen
+          plan={plan}
+          onOpenExercise={(exerciseId) => go({ name: "exercise", exerciseId })}
+          onStartSession={startPrescribed}
+        />
+      );
+      break;
+    case "exercise":
+      page = (
+        <ExerciseDetailScreen
+          exerciseId={route.exerciseId}
+          plan={plan}
+          onBack={() => go({ name: "program" })}
+          onStartSession={startPrescribed}
+          onPractice={(exerciseId) =>
+            go({ name: "readiness", plan: practicePlan(exerciseId, plan) })
+          }
+        />
+      );
+      break;
+    case "progress":
+      page = <ProgressScreen profile={profile} />;
+      break;
+    case "profile":
+      page = (
+        <ProfileScreen
+          profile={profile}
+          plan={plan}
+          onClearHistory={handleClearHistory}
+          onSwitchUser={handleSwitchUser}
+        />
+      );
+      break;
+    default:
+      page = (
+        <HomeScreen
+          profile={profile}
+          plan={plan}
+          publishedAt={stored.publishedAt}
+          onStartSession={startPrescribed}
+          onOpenProgram={() => go({ name: "program" })}
+        />
+      );
   }
 
   return (
     <>
       {page}
-      <TabBar active={activeTab} onSelect={(tab) => setScreen(tab)} />
+      <TabBar active={TAB_FOR_ROUTE[route.name] ?? "home"} onSelect={(tab) => go({ name: tab })} />
     </>
   );
 }
