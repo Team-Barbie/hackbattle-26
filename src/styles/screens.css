@@ -776,7 +776,16 @@
 }
 
 .editor-step .field select {
-  min-height: 40px;
+  min-height: 32px;
+  padding: 0 24px 0 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.editor-step .field select:hover:not(:disabled) {
+  color: var(--accent);
 }
 
 .stepper {
