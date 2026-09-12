@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DrawingUtils, PoseLandmarker } from "@mediapipe/tasks-vision";
+import { calculateAngleOrNull } from "../biomechanics/angles";
 import {
   formatPoseLog,
   getPoseDetector,
@@ -28,12 +29,35 @@ function cameraErrorMessage(error: unknown): string {
   return "Could not start the camera.";
 }
 
-function formatOptionalJoint(label: string, point: LandmarkPoint | null) {
-  if (!isVisible(point)) {
-    return "";
+function visibleJoint(point: LandmarkPoint | null) {
+  return isVisible(point) ? point : null;
+}
+
+function formatKneeAngle(label: string, angle: number | null) {
+  if (angle === null) {
+    return `${label}: —`;
   }
 
-  return `${label} ${point.x.toFixed(2)}, ${point.y.toFixed(2)}`;
+  return `${label}: ${Math.round(angle)}°`;
+}
+
+function kneeAnglesFromPose(pose: DetectedPose | null) {
+  if (!pose) {
+    return { left: null, right: null };
+  }
+
+  return {
+    left: calculateAngleOrNull(
+      visibleJoint(pose.leftHip),
+      visibleJoint(pose.leftKnee),
+      visibleJoint(pose.leftAnkle),
+    ),
+    right: calculateAngleOrNull(
+      visibleJoint(pose.rightHip),
+      visibleJoint(pose.rightKnee),
+      visibleJoint(pose.rightAnkle),
+    ),
+  };
 }
 
 const VISIBLE_LANDMARK = 0.16;
@@ -263,12 +287,18 @@ export default function CameraView() {
 
         const now = performance.now();
 
-        if (now - lastLoggedAt >= 400) {
+        if (now - lastLoggedAt >= 150) {
           lastLoggedAt = now;
           setPose(nextPose);
 
           if (nextPose) {
-            console.log("[pose]", formatPoseLog(nextPose));
+            const nextAngles = kneeAnglesFromPose(nextPose);
+            console.log(
+              "[pose]",
+              formatPoseLog(nextPose),
+              formatKneeAngle("Left knee", nextAngles.left),
+              formatKneeAngle("Right knee", nextAngles.right),
+            );
           }
         }
       }
@@ -304,6 +334,8 @@ export default function CameraView() {
       }
     };
   }, [isLive, poseReady]);
+
+  const kneeAngles = kneeAnglesFromPose(pose);
 
   return (
     <section className="camera-card">
@@ -347,20 +379,15 @@ export default function CameraView() {
           {!poseReady
             ? "Loading pose model…"
             : pose
-              ? "Pose landmarks"
-              : "Keep shoulders in frame and hit the Dougie — the figure should snap with you"}
+              ? "Knee angles"
+              : "Keep hips, knees, and ankles in frame, then squat"}
         </p>
         {pose && (
           <pre className="pose-log-coords">
             {[
-              `L shoulder ${pose.leftShoulder.x.toFixed(2)}, ${pose.leftShoulder.y.toFixed(2)}`,
-              formatOptionalJoint("L hip     ", pose.leftHip),
-              formatOptionalJoint("L knee    ", pose.leftKnee),
-              formatOptionalJoint("L ankle   ", pose.leftAnkle),
-              formatOptionalJoint("R knee    ", pose.rightKnee),
-            ]
-              .filter(Boolean)
-              .join("\n")}
+              formatKneeAngle("Left knee", kneeAngles.left),
+              formatKneeAngle("Right knee", kneeAngles.right),
+            ].join("\n")}
           </pre>
         )}
       </div>

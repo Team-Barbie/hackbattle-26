@@ -2,10 +2,10 @@
 
 A user opens the app, allows camera access, performs a squat, and sees:
 
-* their pose skeleton
-* rep count
-* one detected form issue
-* one correction
+- their pose skeleton
+- rep count
+- one detected form issue
+- one correction
 
 Keep v1 to **one exercise: squat**.
 
@@ -23,176 +23,7 @@ Exercise State
 Form Rules
   ↓
 Feedback
-```
 
-Do not train a model yet.
-
----
-
-## Commit 1 — App shell + camera
-
-**Commit**
-
-```text
-feat: add live webcam feed
-```
-
-Build:
-
-* simple web page
-* start/stop camera
-* display webcam feed
-* basic layout
-
-Suggested structure:
-
-```text
-src/
-  components/
-    CameraView.tsx
-  App.tsx
-```
-
-Done when:
-
-> You can open the app and see yourself through the webcam.
-
-Do not add pose detection yet.
-
----
-
-## Commit 2 — Add pose detection
-
-**Commit**
-
-```text
-feat: detect body landmarks from camera
-```
-
-Add MediaPipe Pose / Pose Landmarker.
-
-Input:
-
-```text
-video frame
-```
-
-Output:
-
-```text
-shoulder
-hip
-knee
-ankle
-etc.
-```
-
-Keep pose logic separate:
-
-```text
-src/
-  vision/
-    poseDetector.ts
-```
-
-Expose something simple:
-
-```ts
-detectPose(videoFrame)
-```
-
-Done when:
-
-> You can log body landmark coordinates while moving.
-
----
-
-## Commit 3 — Draw the skeleton
-
-**Commit**
-
-```text
-feat: render pose skeleton over camera
-```
-
-Add a canvas over the webcam.
-
-Draw:
-
-```text
-shoulder → hip
-hip → knee
-knee → ankle
-```
-
-You can draw the full MediaPipe skeleton if it's easy.
-
-Architecture now:
-
-```text
-Camera
-  ↓
-Pose Detector
-  ↓
-Landmarks
-  ↓
-Skeleton Overlay
-```
-
-Done when:
-
-> The skeleton follows your body in real time.
-
-This is already a good visual demo checkpoint.
-
----
-
-## Commit 4 — Add joint-angle utilities
-
-**Commit**
-
-```text
-feat: calculate joint angles from pose landmarks
-```
-
-Create:
-
-```text
-src/
-  biomechanics/
-    angles.ts
-```
-
-Main function:
-
-```ts
-calculateAngle(a, b, c)
-```
-
-Use:
-
-```text
-hip
-knee
-ankle
-```
-
-to calculate knee angle.
-
-Display it temporarily:
-
-```text
-Left knee: 132°
-Right knee: 129°
-```
-
-Done when:
-
-> Knee angle changes correctly as you squat.
-
-Keep this function generic. You will reuse it for every exercise later.
-
----
 
 ## Commit 5 — Detect squat state
 
@@ -211,13 +42,6 @@ STANDING
 DESCENDING
 BOTTOM
 ASCENDING
-```
-
-For MVP, you can simplify even further:
-
-```text
-UP
-DOWN
 ```
 
 Example:
@@ -257,6 +81,8 @@ Done when:
 
 ---
 
+
+
 # MVP CHECKPOINT 1
 
 At this point you already have:
@@ -272,6 +98,8 @@ camera
 This is the foundation. Everything after this builds on it.
 
 ---
+
+
 
 ## Commit 6 — Count reps
 
@@ -320,6 +148,8 @@ Done when:
 Now you have something users immediately understand.
 
 ---
+
+
 
 ## Commit 7 — Detect one form problem
 
@@ -375,6 +205,8 @@ Done when:
 > A shallow squat gets flagged and a deeper squat doesn't.
 
 ---
+
+
 
 ## Commit 8 — Add coaching feedback
 
@@ -432,6 +264,8 @@ Done when:
 
 ---
 
+
+
 # MVP CHECKPOINT 2
 
 This is the hackathon MVP.
@@ -455,6 +289,8 @@ Correction
 You could stop here and still have a valid project.
 
 ---
+
+
 
 ## Commit 9 — Stabilize noisy pose data
 
@@ -489,6 +325,8 @@ Done when:
 > The knee angle and squat state don't flicker constantly.
 
 ---
+
+
 
 ## Commit 10 — Add second form problem
 
@@ -536,6 +374,8 @@ Two reliable errors are better than eight bad ones.
 
 ---
 
+
+
 ## Commit 11 — Rank feedback
 
 **Commit**
@@ -582,6 +422,8 @@ This makes the app feel much smarter.
 
 ---
 
+
+
 ## Commit 12 — Add session summary
 
 **Commit**
@@ -618,6 +460,8 @@ Do not build accounts or databases yet.
 Keep session data in memory.
 
 ---
+
+
 
 # Hackathon stopping point
 
@@ -678,6 +522,8 @@ src/
 
 ---
 
+
+
 # After the hackathon: prepare for ML
 
 Do not throw away the rule-based system.
@@ -704,6 +550,8 @@ Not necessarily raw video.
 
 ---
 
+
+
 ## Commit 14
 
 ```text
@@ -724,6 +572,8 @@ The current rule system can help pre-label the dataset.
 Humans can correct those labels later.
 
 ---
+
+
 
 ## Commit 15
 
@@ -760,6 +610,8 @@ XGBoost
 Not a huge neural network.
 
 ---
+
+
 
 ## Commit 16
 
@@ -815,6 +667,8 @@ Pose → ML → Issue
 Everything else survives.
 
 ---
+
+
 
 # The key sequence
 
