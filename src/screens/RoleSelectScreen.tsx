@@ -23,7 +23,7 @@ export default function RoleSelectScreen({ onSelectRole }: Props) {
         <button type="button" className="role-card is-disabled" disabled>
           <span className="role-badge">T</span>
           <span className="role-name">Therapist</span>
-          <span className="role-desc">Coming soon — assign plans and review progress.</span>
+          <span className="role-desc">Coming soon. Assign plans and review progress.</span>
         </button>
       </div>
     </div>

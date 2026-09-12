@@ -3,7 +3,7 @@ import type { SquatSession } from "../hooks/useSquatSession";
 
 function formatThigh(elevation: number | null): string {
   const degrees = thighAngleDegrees(elevation);
-  return degrees === null ? "—" : `${Math.round(degrees)}°`;
+  return degrees === null ? "·" : `${Math.round(degrees)}°`;
 }
 
 export default function FeedbackPanel({ session }: { session: SquatSession }) {
@@ -22,7 +22,7 @@ export default function FeedbackPanel({ session }: { session: SquatSession }) {
         <div>
           <dt>State</dt>
           <dd className={squatState ? `is-${squatState.toLowerCase()}` : ""}>
-            {squatState ?? "—"}
+            {squatState ?? "·"}
           </dd>
         </div>
         <div>
@@ -35,7 +35,12 @@ export default function FeedbackPanel({ session }: { session: SquatSession }) {
         </div>
       </dl>
 
-      {!poseReady && !poseError && <p className="feedback-note">Loading pose model…</p>}
+      {!poseReady && !poseError && (
+        <div className="loading-row">
+          <span className="skeleton-pip" aria-hidden="true" />
+          <p className="feedback-note">Loading pose model…</p>
+        </div>
+      )}
       {poseError && <p className="feedback-error">{poseError}</p>}
       {session.error && <p className="feedback-error">{session.error}</p>}
     </section>

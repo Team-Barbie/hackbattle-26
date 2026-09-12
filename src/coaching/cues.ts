@@ -54,7 +54,7 @@ export function nextCue({
         }
       : {
           headline: "Go down",
-          detail: "Start the rep — bend the knees and sit back, slow and controlled.",
+          detail: "Start the rep: bend the knees and sit back, slow and controlled.",
           tone: "down",
         };
   }

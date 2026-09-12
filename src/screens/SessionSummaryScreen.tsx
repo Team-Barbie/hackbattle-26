@@ -13,7 +13,7 @@ export default function SessionSummaryScreen({ reps, target, onDone }: Props) {
       <p className="summary-reps">{reps}</p>
       <p className="summary-note">
         {complete
-          ? `Nice work — you hit your target of ${target} reps.`
+          ? `Nice work. You hit your target of ${target} reps.`
           : `You logged ${reps} of ${target} reps. Every rep counts.`}
       </p>
       <button type="button" className="block" onClick={onDone}>
