@@ -3,8 +3,8 @@ import type { DetectedPose } from "../../vision/poseDetector";
 
 export type LateralRaiseState = "LATERAL_DOWN" | "LATERAL_UP";
 
-const ARMS_DOWN_DEGREES = 28;
-const ARMS_UP_DEGREES = 68;
+const ARMS_DOWN_DEGREES = 32;
+const ARMS_UP_DEGREES = 80;
 
 export function lateralRaiseDegrees(pose: DetectedPose | null): number | null {
   return lateralFromPose(pose).degrees;

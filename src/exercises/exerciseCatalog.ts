@@ -17,6 +17,10 @@ export function isExerciseId(value: string): value is ExerciseId {
   return EXERCISES.some((exercise) => exercise.id === value);
 }
 
+export function exerciseName(id: ExerciseId): string {
+  return EXERCISES.find((exercise) => exercise.id === id)?.name ?? id;
+}
+
 export function usesUpperBody(id: ExerciseId): boolean {
   return id === "shoulder-raise" || id === "lateral-raise" || id === "bicep-curl";
 }

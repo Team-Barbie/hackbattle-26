@@ -17,6 +17,8 @@ export type CueInput = {
   direction: MoveDirection;
   repsDone: number;
   repsTarget: number;
+  nextExerciseName?: string | null;
+  sessionComplete?: boolean;
 };
 
 const WAIT_IN_FRAME: Record<ExerciseId, Cue> = {
@@ -54,15 +56,27 @@ export function nextCue({
   direction,
   repsDone,
   repsTarget,
+  nextExerciseName = null,
+  sessionComplete = false,
 }: CueInput): Cue {
   if (!tracking) {
     return WAIT_IN_FRAME[exerciseId];
   }
 
   if (repsDone >= repsTarget && repsTarget > 0) {
+    if (sessionComplete) {
+      return {
+        headline: "Session complete",
+        detail: `That's the full plan. ${repsDone} reps on this last exercise.`,
+        tone: "wait",
+      };
+    }
+
     return {
       headline: "Set complete",
-      detail: `That's ${repsDone} reps. Shake it out, or raise the target for another set.`,
+      detail: nextExerciseName
+        ? `That's ${repsDone} reps. Next: ${nextExerciseName}.`
+        : `That's ${repsDone} reps. Stay ready for the next exercise.`,
       tone: "wait",
     };
   }

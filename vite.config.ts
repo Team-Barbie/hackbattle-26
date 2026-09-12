@@ -25,6 +25,8 @@ function mediapipeWasm(): Plugin {
           return;
         }
 
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
         response.setHeader(
           "Content-Type",
           fileName.endsWith(".wasm") ? "application/wasm" : "text/javascript",
@@ -47,5 +49,11 @@ export default defineConfig({
   plugins: [react(), mediapipeWasm()],
   optimizeDeps: {
     exclude: ["@mediapipe/tasks-vision"],
+  },
+  server: {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+    },
   },
 });

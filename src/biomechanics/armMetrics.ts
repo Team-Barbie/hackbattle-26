@@ -69,7 +69,11 @@ export function lateralReading(shoulder: LandmarkPoint | null, elbow: LandmarkPo
   };
 }
 
-export function combineArmReadings(left: ArmReading, right: ArmReading): ArmReading {
+export function combineArmReadings(
+  left: ArmReading,
+  right: ArmReading,
+  maxDisagreement = 28,
+): ArmReading {
   const usable = [left, right].filter(
     (reading): reading is { value: number; degrees: number; confidence: number } =>
       reading.value !== null && reading.degrees !== null,
@@ -84,15 +88,21 @@ export function combineArmReadings(left: ArmReading, right: ArmReading): ArmRead
   }
 
   const [a, b] = usable;
-  const pick = Math.abs(a.confidence - b.confidence) > CONFIDENCE_GAP
-    ? a.confidence > b.confidence
-      ? a
-      : b
-    : {
-        value: (a.value + b.value) / 2,
-        degrees: (a.degrees + b.degrees) / 2,
-        confidence: (a.confidence + b.confidence) / 2,
-      };
+
+  if (Math.abs(a.degrees - b.degrees) > maxDisagreement) {
+    return { value: null, degrees: null, confidence: 0 };
+  }
+
+  const pick =
+    Math.abs(a.confidence - b.confidence) > CONFIDENCE_GAP
+      ? a.confidence > b.confidence
+        ? a
+        : b
+      : {
+          value: (a.value + b.value) / 2,
+          degrees: (a.degrees + b.degrees) / 2,
+          confidence: (a.confidence + b.confidence) / 2,
+        };
 
   return pick;
 }
@@ -105,6 +115,7 @@ export function curlFromPose(pose: DetectedPose | null): ArmReading {
   return combineArmReadings(
     curlReading(pose.leftShoulder, pose.leftElbow, pose.leftWrist),
     curlReading(pose.rightShoulder, pose.rightElbow, pose.rightWrist),
+    34,
   );
 }
 
