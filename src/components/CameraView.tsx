@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DrawingUtils, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { calculateAngleOrNull } from "../biomechanics/angles";
+import { combineKneeAngles, detectSquatState, type SquatState } from "../exercises/squat/squatState";
 import {
   formatPoseLog,
   getPoseDetector,
@@ -114,7 +115,9 @@ export default function CameraView() {
   const [error, setError] = useState<string | null>(null);
   const [poseError, setPoseError] = useState<string | null>(null);
   const [poseReady, setPoseReady] = useState(false);
+  const squatStateRef = useRef<SquatState | null>(null);
   const [pose, setPose] = useState<DetectedPose | null>(null);
+  const [squatState, setSquatState] = useState<SquatState | null>(null);
   const [videoAspect, setVideoAspect] = useState("16 / 9");
 
   async function requestStream() {
@@ -181,7 +184,9 @@ export default function CameraView() {
     stopTracks();
     setStatus("stopped");
     setError(null);
+    squatStateRef.current = null;
     setPose(null);
+    setSquatState(null);
   }
 
   useEffect(() => {
@@ -289,15 +294,22 @@ export default function CameraView() {
 
         if (now - lastLoggedAt >= 150) {
           lastLoggedAt = now;
+          const nextAngles = kneeAnglesFromPose(nextPose);
+          const nextState = detectSquatState(
+            combineKneeAngles(nextAngles.left, nextAngles.right),
+            squatStateRef.current,
+          );
+          squatStateRef.current = nextState;
           setPose(nextPose);
+          setSquatState(nextState);
 
           if (nextPose) {
-            const nextAngles = kneeAnglesFromPose(nextPose);
             console.log(
-              "[pose]",
-              formatPoseLog(nextPose),
+              "[squat]",
+              nextState ?? "—",
               formatKneeAngle("Left knee", nextAngles.left),
               formatKneeAngle("Right knee", nextAngles.right),
+              formatPoseLog(nextPose),
             );
           }
         }
@@ -379,16 +391,21 @@ export default function CameraView() {
           {!poseReady
             ? "Loading pose model…"
             : pose
-              ? "Knee angles"
+              ? "Squat state"
               : "Keep hips, knees, and ankles in frame, then squat"}
         </p>
         {pose && (
-          <pre className="pose-log-coords">
-            {[
-              formatKneeAngle("Left knee", kneeAngles.left),
-              formatKneeAngle("Right knee", kneeAngles.right),
-            ].join("\n")}
-          </pre>
+          <>
+            <p className={`squat-state${squatState ? ` is-${squatState.toLowerCase()}` : ""}`}>
+              {squatState ?? "—"}
+            </p>
+            <pre className="pose-log-coords">
+              {[
+                formatKneeAngle("Left knee", kneeAngles.left),
+                formatKneeAngle("Right knee", kneeAngles.right),
+              ].join("\n")}
+            </pre>
+          </>
         )}
       </div>
 
