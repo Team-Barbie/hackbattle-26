@@ -17,7 +17,7 @@ export default function CoachHud({ session }: { session: ExerciseSession }) {
       </div>
       <div className="hud__reps" aria-hidden="true">
         <span className={`hud__reps-value${stepComplete ? " is-complete" : ""}`}>{reps}</span>
-        <span className="hud__reps-target">of {targetReps}</span>
+        <span className="hud__reps-target">/ {targetReps}</span>
       </div>
     </div>
   );

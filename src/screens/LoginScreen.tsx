@@ -30,21 +30,17 @@ export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
       </div>
 
       <div className="page__header">
-        <p className="eyebrow">Patient sign-in</p>
-        <h1 className="display">Welcome back</h1>
-        <p className="lede">
-          Your plan from {therapistName} is ready. Tell us who you are to pick it up.
-        </p>
+        <h1>Patient sign-in</h1>
+        <p className="lede">Enter your name to open the plan from {therapistName}.</p>
       </div>
 
-      <form className="auth-form card" onSubmit={handleSubmit}>
+      <form className="auth-form" onSubmit={handleSubmit}>
         <label className="field">
-          <span>Your name</span>
+          <span>Name</span>
           <input
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Jamie Rivera"
             autoComplete="name"
             autoFocus
             required
@@ -59,14 +55,12 @@ export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
             type="text"
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            placeholder="e.g. RH-4821"
             autoComplete="off"
           />
         </label>
 
-        <button type="submit" className="btn btn--lg btn--block btn--glow" disabled={!trimmed}>
+        <button type="submit" className="btn btn--lg btn--block" disabled={!trimmed}>
           Continue
-          <Icon name="forward" width={18} height={18} />
         </button>
       </form>
     </div>

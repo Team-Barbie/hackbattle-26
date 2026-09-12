@@ -25,10 +25,7 @@ html {
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(900px 520px at 8% -10%, var(--accent-tint), transparent 60%),
-    radial-gradient(700px 480px at 100% 0%, rgba(111, 183, 255, 0.08), transparent 60%),
-    var(--bg);
+  background: var(--bg);
 }
 
 h1,
@@ -46,9 +43,17 @@ figure {
 h1,
 h2,
 h3 {
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.05rem;
 }
 
 ul,

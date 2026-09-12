@@ -1,5 +1,5 @@
 import Icon from "../components/Icon";
-import { exerciseArea, exerciseFraming, exerciseMonogram } from "../content/exerciseMeta";
+import { exerciseArea, exerciseFraming } from "../content/exerciseMeta";
 import { exerciseGuides } from "../coaching/exerciseGuide";
 import { EXERCISES, type ExerciseId } from "../exercises/exerciseCatalog";
 import type { Prescription } from "../exercises/prescription";
@@ -18,72 +18,62 @@ export default function ProgramScreen({ plan, onOpenExercise, onStartSession }: 
   return (
     <div className="screen page">
       <header className="page__header">
-        <p className="eyebrow">Program</p>
-        <h1>{plan.title}</h1>
-        <p className="lede">
-          Prescribed by {plan.therapist}. Exercises run in this order — {totalPrescribedReps(plan)}{" "}
-          reps in total.
+        <h1>Program</h1>
+        <p className="label">
+          {plan.title} · {plan.therapist}
         </p>
       </header>
 
-      <section aria-label="Prescribed exercises" style={{ display: "grid", gap: 10 }}>
+      <section className="card" aria-label="Prescribed exercises">
         <h2 className="section-title">
-          Your prescription <small>tap to learn how</small>
+          Prescribed
+          <small>
+            {plan.steps.length} exercises · {totalPrescribedReps(plan)} reps
+          </small>
         </h2>
-        <ol className="tile-list">
+        <ol className="list">
           {plan.steps.map((step, index) => (
             <li key={step.id}>
               <button
                 type="button"
-                className="exercise-tile"
+                className="row row--indexed"
                 onClick={() => onOpenExercise(step.exerciseId)}
               >
-                <span className="exercise-tile__glyph">{exerciseMonogram(step.exerciseId)}</span>
+                <span className="row__index">{index + 1}</span>
                 <span>
-                  <span className="exercise-tile__name">
-                    {index + 1}. {exerciseGuides[step.exerciseId].name}
-                  </span>
-                  <span className="exercise-tile__sub">
-                    {exerciseArea(step.exerciseId)} · {exerciseFraming(step.exerciseId)}
+                  <span className="row__title">{exerciseGuides[step.exerciseId].name}</span>
+                  <span className="row__sub" style={{ display: "block" }}>
+                    {step.targetReps} reps · {exerciseArea(step.exerciseId)} ·{" "}
+                    {exerciseFraming(step.exerciseId).toLowerCase()}
                   </span>
                 </span>
-                <span className="exercise-tile__end">
-                  <span className="chip">×{step.targetReps}</span>
-                  <Icon name="forward" />
-                </span>
+                <Icon name="forward" className="row__chevron" />
               </button>
             </li>
           ))}
         </ol>
         <button type="button" className="btn btn--block btn--lg" onClick={onStartSession}>
-          <Icon name="play" solid width={18} height={18} />
-          Start full session
+          <Icon name="play" solid width={16} height={16} />
+          Start session
         </button>
       </section>
 
       {library.length > 0 && (
-        <section aria-label="Exercise library" style={{ display: "grid", gap: 10 }}>
+        <section className="card" aria-label="Other exercises">
           <h2 className="section-title">
-            Library <small>not in today's plan</small>
+            Other exercises <small>not in your plan</small>
           </h2>
-          <ul className="tile-list">
+          <ul className="list">
             {library.map((exercise) => (
               <li key={exercise.id}>
-                <button
-                  type="button"
-                  className="exercise-tile"
-                  onClick={() => onOpenExercise(exercise.id)}
-                >
-                  <span className="exercise-tile__glyph is-neutral">
-                    {exerciseMonogram(exercise.id)}
-                  </span>
+                <button type="button" className="row" onClick={() => onOpenExercise(exercise.id)}>
                   <span>
-                    <span className="exercise-tile__name">{exercise.name}</span>
-                    <span className="exercise-tile__sub">{exerciseGuides[exercise.id].summary}</span>
+                    <span className="row__title">{exercise.name}</span>
+                    <span className="row__sub" style={{ display: "block" }}>
+                      {exerciseGuides[exercise.id].summary}
+                    </span>
                   </span>
-                  <span className="exercise-tile__end">
-                    <Icon name="forward" />
-                  </span>
+                  <Icon name="forward" className="row__chevron" />
                 </button>
               </li>
             ))}

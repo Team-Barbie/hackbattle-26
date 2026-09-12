@@ -7,7 +7,7 @@ type Props = {
   label?: string;
 };
 
-export default function ExerciseDemo({ exerciseId, label = "Demo" }: Props) {
+export default function ExerciseDemo({ exerciseId, label }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function ExerciseDemo({ exerciseId, label = "Demo" }: Props) {
         className="demo__canvas"
         aria-label="Looping demonstration of the exercise"
       />
-      <figcaption className="chip chip--outline demo__label">{label}</figcaption>
+      {label && <figcaption className="demo__label">{label} view</figcaption>}
     </figure>
   );
 }

@@ -31,42 +31,39 @@ export default function ExerciseDetailScreen({
           <Icon name="back" />
           Program
         </button>
-        <div style={{ display: "flex", gap: 6 }}>
-          <span className="chip chip--outline">{exerciseArea(exerciseId)}</span>
-          <span className="chip chip--outline">{exerciseFraming(exerciseId)}</span>
-        </div>
       </div>
 
       <header className="page__header">
-        <p className="eyebrow">
-          {position ? `Exercise ${position} of ${plan.steps.length}` : "From the library"}
-        </p>
         <h1>{guide.name}</h1>
+        <p className="label">
+          {position ? `Exercise ${position} of ${plan.steps.length} · ${step?.targetReps} reps` : "Not in your plan"}
+          {" · "}
+          {exerciseArea(exerciseId)} · {exerciseFraming(exerciseId).toLowerCase()}
+        </p>
         <p className="lede">{guide.summary}</p>
       </header>
 
       <ExerciseDemo exerciseId={exerciseId} label={exerciseFraming(exerciseId)} />
 
       <section className="card">
-        <p className="card__title">How to do it</p>
+        <h2 className="section-title">How to do it</h2>
         <ol className="guide-steps">
           {guide.steps.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ol>
         <p className="tip">
-          <Icon name="camera" />
-          <span>{guide.cameraTip}</span>
+          <strong>Camera:</strong> {guide.cameraTip}
         </p>
       </section>
 
       <div className="detail-actions">
         <button type="button" className="btn btn--ghost btn--lg" onClick={() => onPractice(exerciseId)}>
-          Practice only this
+          Practice this only
         </button>
-        <button type="button" className="btn btn--lg btn--glow" onClick={onStartSession}>
-          <Icon name="play" solid width={18} height={18} />
-          {step ? "Start session" : "Start today's plan"}
+        <button type="button" className="btn btn--lg" onClick={onStartSession}>
+          <Icon name="play" solid width={16} height={16} />
+          Start session
         </button>
       </div>
     </div>

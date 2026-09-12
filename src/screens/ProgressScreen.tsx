@@ -30,36 +30,34 @@ export default function ProgressScreen({ profile }: Props) {
   return (
     <div className="screen page">
       <header className="page__header">
-        <p className="eyebrow">Progress</p>
-        <h1>Your history</h1>
+        <h1>Progress</h1>
       </header>
 
-      <div className="stat-grid">
-        <div className="stat">
-          <span className={`stat__value${streak > 0 ? " is-accent" : ""}`}>{streak}</span>
-          <span className="stat__label">Day streak</span>
+      <div className="stats">
+        <div>
+          <span className="stats__value">{streak}</span>
+          <span className="stats__label">Day streak</span>
         </div>
-        <div className="stat">
-          <span className="stat__value">{totalReps(profile)}</span>
-          <span className="stat__label">Total reps</span>
+        <div>
+          <span className="stats__value">{totalReps(profile)}</span>
+          <span className="stats__label">Total reps</span>
         </div>
-        <div className="stat">
-          <span className="stat__value">{Math.round(averageCompletion * 100)}%</span>
-          <span className="stat__label">Avg. completion</span>
+        <div>
+          <span className="stats__value">{Math.round(averageCompletion * 100)}%</span>
+          <span className="stats__label">Avg. completion</span>
         </div>
       </div>
 
       <section className="card" aria-label="Last seven days">
-        <div className="card__row">
-          <p className="card__title">Last 7 days</p>
-          <span className="chip">{weekReps} reps</span>
-        </div>
+        <h2 className="section-title">
+          Last 7 days <small>{weekReps} reps</small>
+        </h2>
         <div className="week-bars" role="img" aria-label={`${weekReps} reps over the last seven days`}>
           {week.map((day) => (
             <div key={day.day} className={`week-bars__col${day.isToday ? " is-today" : ""}`}>
               <div
                 className={`week-bars__bar${day.reps > 0 ? " is-active" : ""}`}
-                style={{ height: `${Math.max(4, (day.reps / weekMax) * 100)}%` }}
+                style={{ height: `${Math.max(3, (day.reps / weekMax) * 100)}%` }}
                 title={`${day.reps} reps`}
               />
               <span className="week-bars__label">{day.label}</span>
@@ -69,49 +67,45 @@ export default function ProgressScreen({ profile }: Props) {
       </section>
 
       <section className="card" aria-label="All sessions">
-        <div className="card__row">
-          <p className="card__title">All sessions</p>
-          <span className="muted" style={{ fontSize: "0.8rem" }}>
-            {sessions.length} total
-          </span>
-        </div>
+        <h2 className="section-title">
+          Sessions <small>{sessions.length} total</small>
+        </h2>
 
         {sessions.length === 0 ? (
-          <div className="empty">
+          <p className="empty">
             <strong>Nothing logged yet</strong>
-            <span>Finish a session from Home and it will show up here.</span>
-          </div>
+            Finish a session and it will appear here.
+          </p>
         ) : (
-          <ul className="history">
+          <ul className="list">
             {sessions.map((session) => (
-              <li key={session.id} className="history__row">
-                <div className="history__ring">
+              <li key={session.id} className="row row--leading">
+                <div className="ring-sm">
                   <ProgressRing value={sessionCompletion(session)} thickness={0.12} />
                 </div>
                 <div>
-                  <p className="history__title">
-                    {formatDay(session.date)} · {formatTime(session.date)}
+                  <p className="row__title">
+                    {formatDay(session.date)}, {formatTime(session.date)}
                   </p>
-                  <p className="history__meta">
+                  <p className="row__sub">
                     {session.planTitle} · {formatDuration(session.durationMs)}
                     {session.readiness !== null
                       ? ` · felt ${READINESS_LABELS[session.readiness].toLowerCase()}`
                       : ""}
                   </p>
-                  <div className="history__steps">
+                  <p className="history__steps">
                     {session.steps.map((step, index) => (
                       <span
                         key={`${session.id}-${index}`}
-                        className={`chip${step.reps >= step.targetReps ? " chip--accent" : ""}`}
+                        className={step.reps >= step.targetReps ? "is-complete" : undefined}
                       >
                         {shortExerciseName(step.exerciseId)} {step.reps}/{step.targetReps}
                       </span>
                     ))}
-                  </div>
+                  </p>
                 </div>
-                <span className="history__reps">
-                  {sessionReps(session)}
-                  <span className="muted">/{sessionTarget(session)}</span>
+                <span className="row__end">
+                  {sessionReps(session)}/{sessionTarget(session)}
                 </span>
               </li>
             ))}

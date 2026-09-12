@@ -20,15 +20,14 @@ export default function ReadinessScreen({ plan, onContinue, onBack }: Props) {
           <Icon name="back" />
           Back
         </button>
-        <span className="chip chip--outline">
-          {plan.steps.length} exercises · {totalPrescribedReps(plan)} reps
-        </span>
       </div>
 
       <div className="page__header">
-        <p className="eyebrow">Before you start</p>
-        <h1 className="display">How's the body feeling?</h1>
-        <p className="lede">A quick check-in that gets saved alongside today's session.</p>
+        <h1>How are you feeling today?</h1>
+        <p className="lede">
+          Saved with this session so your therapist can see it. {plan.steps.length} exercises,{" "}
+          {totalPrescribedReps(plan)} reps ahead.
+        </p>
       </div>
 
       <div className="readiness" role="radiogroup" aria-label="Readiness">
@@ -41,31 +40,17 @@ export default function ReadinessScreen({ plan, onContinue, onBack }: Props) {
             onClick={() => setReadiness(index)}
             aria-checked={readiness === index}
           >
-            <span className="readiness__level" aria-hidden="true">
-              {READINESS_LABELS.map((_, level) => (
-                <i
-                  key={level}
-                  className={level <= index ? "is-lit" : undefined}
-                  style={{ height: `${40 + level * 15}%` }}
-                />
-              ))}
-            </span>
             {label}
           </button>
         ))}
       </div>
 
       <div className="readiness-actions">
-        <button
-          type="button"
-          className="btn btn--lg btn--block btn--glow"
-          onClick={() => onContinue(readiness)}
-        >
-          <Icon name="camera" width={18} height={18} />
-          {readiness === null ? "Continue to camera" : "Let's go"}
+        <button type="button" className="btn btn--lg btn--block" onClick={() => onContinue(readiness)}>
+          Continue
         </button>
         <button type="button" className="back-link" onClick={() => onContinue(null)}>
-          Skip check-in
+          Skip
         </button>
       </div>
     </div>
