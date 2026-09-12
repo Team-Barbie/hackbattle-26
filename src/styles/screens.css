@@ -670,8 +670,16 @@
 }
 
 .summary__ring {
+  position: relative;
   width: 168px;
   height: 168px;
+}
+
+.summary__ring-inner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
 }
 
 .summary__total {
