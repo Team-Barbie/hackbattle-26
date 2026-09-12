@@ -9,8 +9,8 @@ export default function Readouts({ session }: { session: ExerciseSession }) {
   const { poseReady, poseError, error, referenceMessage, exerciseId } = session;
 
   return (
-    <section className="card card--tight" aria-label="Live readouts">
-      <p className="card__title">Live readouts</p>
+    <section className="card" aria-label="Live readouts">
+      <h2 className="section-title">Readouts</h2>
       <dl className="readouts">
         <div className="readouts__item">
           <dt>State</dt>
@@ -40,15 +40,8 @@ export default function Readouts({ session }: { session: ExerciseSession }) {
         )}
       </dl>
 
-      {exerciseId === "custom" && referenceMessage && (
-        <p className="notice notice--accent">{referenceMessage}</p>
-      )}
-      {!poseReady && !poseError && (
-        <p className="notice">
-          <i className="dot dot--pulse" style={{ marginTop: 6 }} />
-          Loading the pose model — tracking starts automatically.
-        </p>
-      )}
+      {exerciseId === "custom" && referenceMessage && <p className="notice">{referenceMessage}</p>}
+      {!poseReady && !poseError && <p className="notice">Loading the pose model…</p>}
       {poseError && <p className="notice notice--error">{poseError}</p>}
       {error && session.status !== "error" && <p className="notice notice--error">{error}</p>}
     </section>

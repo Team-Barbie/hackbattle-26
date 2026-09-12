@@ -9,7 +9,7 @@ export default function RepDial({ session }: { session: ExerciseSession }) {
   const progress = targetReps > 0 ? reps / targetReps : 0;
 
   return (
-    <section className="card card--tight" aria-label="Rep counter">
+    <section className="card" aria-label="Rep counter">
       <div className="rep-dial">
         <div className="rep-dial__ring">
           <ProgressRing value={progress} thickness={0.09} />
@@ -18,23 +18,17 @@ export default function RepDial({ session }: { session: ExerciseSession }) {
           </span>
         </div>
         <div className="rep-dial__copy">
-          <span className="eyebrow eyebrow--muted">
-            {planComplete ? "Plan finished" : `Exercise ${stepIndex + 1} of ${plan.steps.length}`}
-          </span>
           <p className="rep-dial__name">{exerciseName(exerciseId)}</p>
           <p className="rep-dial__sub">
-            {exerciseArea(exerciseId)} · {exerciseFraming(exerciseId)}
+            {planComplete ? "Plan finished" : `Exercise ${stepIndex + 1} of ${plan.steps.length}`} ·{" "}
+            {exerciseArea(exerciseId)} · {exerciseFraming(exerciseId).toLowerCase()}
           </p>
-          <p className="rep-dial__remaining">
-            {planComplete ? (
-              "All prescribed reps done."
-            ) : stepComplete ? (
-              "Set complete — moving on."
-            ) : (
-              <>
-                <b>{remaining}</b> to go of {targetReps}
-              </>
-            )}
+          <p className="rep-dial__sub">
+            {planComplete
+              ? "All prescribed reps done."
+              : stepComplete
+                ? "Set complete, moving on."
+                : `${remaining} of ${targetReps} to go`}
           </p>
         </div>
       </div>

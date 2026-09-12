@@ -1,4 +1,3 @@
-import Icon from "../components/Icon";
 import type { Prescription } from "../exercises/prescription";
 import { currentStreak, totalReps, type PatientProfile } from "../state/patientProfile";
 
@@ -9,42 +8,22 @@ type Props = {
   onSwitchUser: () => void;
 };
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 export default function ProfileScreen({ profile, plan, onClearHistory, onSwitchUser }: Props) {
   const joined = new Date(profile.createdAt).toLocaleDateString(undefined, {
-    month: "long",
     day: "numeric",
+    month: "long",
     year: "numeric",
   });
 
   return (
     <div className="screen page">
       <header className="page__header">
-        <p className="eyebrow">Profile</p>
+        <h1>{profile.name}</h1>
+        <p className="label">Patient since {joined}</p>
       </header>
 
-      <div className="profile-head">
-        <span className="avatar" aria-hidden="true">
-          {initials(profile.name) || "?"}
-        </span>
-        <div>
-          <h1 style={{ fontSize: "1.6rem" }}>{profile.name}</h1>
-          <p className="muted" style={{ fontSize: "0.86rem" }}>
-            Patient since {joined}
-          </p>
-        </div>
-      </div>
-
       <section className="card">
-        <p className="card__title">Care team</p>
+        <h2 className="section-title">Details</h2>
         <dl className="kv">
           <div>
             <dt>Therapist</dt>
@@ -68,7 +47,7 @@ export default function ProfileScreen({ profile, plan, onClearHistory, onSwitchU
           </div>
           <div>
             <dt>Storage</dt>
-            <dd>This device only</dd>
+            <dd>This browser only</dd>
           </div>
         </dl>
       </section>
@@ -80,11 +59,10 @@ export default function ProfileScreen({ profile, plan, onClearHistory, onSwitchU
           onClick={onClearHistory}
           disabled={profile.sessions.length === 0}
         >
-          <Icon name="trash" width={16} height={16} />
           Clear session history
         </button>
         <button type="button" className="btn btn--ghost btn--block" onClick={onSwitchUser}>
-          Switch user
+          Sign out
         </button>
       </div>
     </div>

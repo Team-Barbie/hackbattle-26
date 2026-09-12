@@ -13,14 +13,13 @@ export default function SessionControls({ session, onRestartPlan, className }: P
 
   return (
     <section
-      className={`card card--tight${className ? ` ${className}` : ""}`}
+      className={`card${className ? ` ${className}` : ""}`}
       aria-label="Session controls"
     >
-      <p className="card__title">Controls</p>
+      <h2 className="section-title">Controls</h2>
 
       {isCustom && recordingReference && (
         <p className="recording-banner">
-          <i className="dot dot--pulse" />
           Recording reference · {session.referenceFrameCount} frames
         </p>
       )}

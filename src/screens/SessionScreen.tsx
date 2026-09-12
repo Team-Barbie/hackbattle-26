@@ -87,10 +87,7 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
           </p>
         </div>
         <div>
-          <span className={`chip${session.isLive ? " chip--accent" : ""}`}>
-            <i className={`dot${session.isLive && !session.tracking ? " dot--pulse" : ""}`} />
-            {session.isLive ? "Live" : "Paused"}
-          </span>
+          <span className="label">{session.isLive ? "Camera on" : "Camera off"}</span>
         </div>
       </header>
 
@@ -105,21 +102,20 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
         </aside>
       </div>
 
-      <footer className={`session__footer${planComplete ? " is-complete" : ""}`}>
+      <footer className="session__footer">
         <div className="session__footer-copy">
-          <strong>{planComplete ? "Plan complete — nice work." : `${bankedReps} reps banked so far`}</strong>
+          <strong>{planComplete ? "All exercises complete" : `${bankedReps} reps so far`}</strong>
           <span>
             {planComplete
-              ? "Finish to save this session to your history."
-              : "You can finish early; whatever you've done gets saved."}
+              ? "Finish to save this session."
+              : "Finishing early saves what you've done."}
           </span>
         </div>
         <button
           type="button"
-          className={`btn btn--lg${planComplete ? " btn--glow" : " btn--ghost"}`}
+          className={`btn btn--lg${planComplete ? "" : " btn--ghost"}`}
           onClick={handleFinish}
         >
-          <Icon name="check" width={18} height={18} />
           {planComplete ? "Finish session" : "Finish early"}
         </button>
       </footer>

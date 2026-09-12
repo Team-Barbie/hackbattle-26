@@ -9,43 +9,38 @@ type Props = {
 
 export default function RoleSelectScreen({ onSelectRole }: Props) {
   return (
-    <div className="screen screen--centered">
-      <div className="hero">
-        <Brand size="lg" markOnly />
-        <div>
-          <p className="eyebrow">PhysioLoop</p>
-          <h1 className="display">Rehab that watches your form.</h1>
-        </div>
-        <p className="lede">
-          Camera-guided exercise sessions, prescribed by your therapist and coached rep by rep.
-        </p>
+    <div className="screen screen--narrow screen--centered">
+      <div className="page__header">
+        <Brand />
+        <h1 style={{ marginTop: 20 }}>Sign in</h1>
+        <p className="lede">Choose how you're using PhysioLoop on this device.</p>
       </div>
 
-      <div className="role-grid">
+      <div className="role-list">
         <button type="button" className="role-card" onClick={() => onSelectRole("patient")}>
           <span className="role-card__icon">
             <Icon name="patient" />
           </span>
-          <span className="role-card__name">I'm a patient</span>
-          <span className="role-card__desc">
-            Follow today's plan, get live cues, and track your streak.
+          <span>
+            <span className="role-card__name">Patient</span>
+            <span className="role-card__desc">Do today's exercises with camera guidance.</span>
           </span>
-          <span className="role-card__cta">Continue →</span>
+          <Icon name="forward" className="role-card__chevron" />
         </button>
 
         <button type="button" className="role-card" onClick={() => onSelectRole("therapist")}>
           <span className="role-card__icon">
             <Icon name="therapist" />
           </span>
-          <span className="role-card__name">I'm a therapist</span>
-          <span className="role-card__desc">
-            Build the prescription, set rep targets, and review completed sessions.
+          <span>
+            <span className="role-card__name">Therapist</span>
+            <span className="role-card__desc">Edit the exercise plan and review sessions.</span>
           </span>
-          <span className="role-card__cta">Open studio →</span>
+          <Icon name="forward" className="role-card__chevron" />
         </button>
       </div>
 
-      <p className="footnote">Everything stays on this device. No account required for the demo.</p>
+      <p className="footnote">Data is stored locally in this browser.</p>
     </div>
   );
 }
