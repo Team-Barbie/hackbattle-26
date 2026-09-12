@@ -27,7 +27,9 @@ const LANDMARK_INDEX = {
 
 const MIN_DETECT_INTERVAL_MS = 16;
 const FRAME_MARGIN = 0.03;
-const MIN_BODY_SPAN = 0.5;
+const MIN_BODY_CHAIN_LENGTH = 0.5;
+const MIN_HEAD_LENGTH = 0.03;
+const MAX_HEAD_LENGTH = 0.25;
 const MIN_SEGMENT_LENGTH = 0.06;
 const MAX_SEGMENT_LENGTH = 0.45;
 const MIN_SEGMENT_RATIO = 0.45;
@@ -166,16 +168,19 @@ function hasPlausibleSide(
     return false;
   }
 
-  const bodySpan = ankle.y - nose.y;
+  const head = pointDistance(nose, shoulder);
   const torso = pointDistance(shoulder, hip);
   const thigh = pointDistance(hip, knee);
   const shin = pointDistance(knee, ankle);
+  const bodyChainLength = head + torso + thigh + shin;
   const segments = [torso, thigh, shin];
   const thighToShin = thigh / shin;
   const torsoToThigh = torso / thigh;
 
   return (
-    bodySpan >= MIN_BODY_SPAN &&
+    bodyChainLength >= MIN_BODY_CHAIN_LENGTH &&
+    head >= MIN_HEAD_LENGTH &&
+    head <= MAX_HEAD_LENGTH &&
     nose.y < shoulder.y &&
     shoulder.y < hip.y + 0.03 &&
     hip.y < ankle.y - 0.08 &&
