@@ -25,6 +25,7 @@ import {
   type Prescription,
 } from "../exercises/prescription";
 import {
+  createBicepCurlCounter,
   detectBicepCurlState,
   bicepCurlDegrees,
   type BicepCurlState,
@@ -194,7 +195,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   const lateralCounterRef = useRef(
     createMotionCounter({ minExcursion: 20, restIsHigh: false }),
   );
-  const curlCounterRef = useRef(createMotionCounter({ minExcursion: 40, restIsHigh: true }));
+  const curlCounterRef = useRef(createBicepCurlCounter());
   const issueCountsRef = useRef<Partial<Record<FormIssueType, number>>>({});
   const maxLeanRef = useRef(Number.NEGATIVE_INFINITY);
   const repPeakRef = useRef<number | null>(null);
@@ -533,12 +534,13 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     let bodyReady = false;
     let readyToCount = false;
 
-    metricFilterRef.current = new MetricFilter(
+    const upperBodyMetric =
       exerciseId === "lateral-raise" ||
-        exerciseId === "bicep-curl" ||
-        exerciseId === "shoulder-raise"
-        ? 24
-        : 0.2,
+      exerciseId === "bicep-curl" ||
+      exerciseId === "shoulder-raise";
+    metricFilterRef.current = new MetricFilter(
+      upperBodyMetric ? 24 : 0.2,
+      exerciseId === "bicep-curl" ? 3 : 6,
     );
     lastStablePoseRef.current = null;
 
