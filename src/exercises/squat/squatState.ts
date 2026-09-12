@@ -3,8 +3,8 @@ import type { ThighReading } from "../../biomechanics/thighElevation";
 export type SquatState = "UP" | "DOWN";
 
 /** Thigh elevation, where 1 is standing upright and 0 is thighs parallel. */
-export const SQUAT_STANDING_ELEVATION = 0.8;
-export const SQUAT_BOTTOM_ELEVATION = 0.35;
+export const SQUAT_STANDING_ELEVATION = 0.86;
+export const SQUAT_BOTTOM_ELEVATION = 0.3;
 
 /** Past this visibility gap the better-tracked leg is trusted on its own. */
 const CONFIDENCE_GAP = 0.15;

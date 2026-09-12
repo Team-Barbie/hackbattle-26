@@ -204,30 +204,36 @@ function hasPlausibleSide(
 }
 
 /**
- * Visibility confidence alone is not sufficient because Pose Landmarker can
- * fit a confident skeleton to a hand or a cropped person. Require a large,
- * in-frame, proportionally plausible body chain on either side.
+ * Require a standing body, but stay loose enough for a front-facing webcam.
+ * Tight 2D segment ratios drop people who are a bit close, far, or turned.
  */
 export function hasFullBodyVisible(pose: DetectedPose | null, threshold = 0.18): boolean {
   if (!pose) {
     return false;
   }
 
-  return (
-    hasPlausibleSide(
-      pose,
-      ["leftShoulder", "leftHip", "leftKnee", "leftAnkle"],
-      threshold,
-    ) ||
-    hasPlausibleSide(
-      pose,
-      ["rightShoulder", "rightHip", "rightKnee", "rightAnkle"],
-      threshold,
-    )
-  );
+  if (
+    hasPlausibleSide(pose, ["leftShoulder", "leftHip", "leftKnee", "leftAnkle"], threshold) ||
+    hasPlausibleSide(pose, ["rightShoulder", "rightHip", "rightKnee", "rightAnkle"], threshold)
+  ) {
+    return true;
+  }
+
+  const left = isVisible(pose.leftShoulder, threshold) && isVisible(pose.leftHip, threshold) && isVisible(pose.leftKnee, threshold);
+  const right = isVisible(pose.rightShoulder, threshold) && isVisible(pose.rightHip, threshold) && isVisible(pose.rightKnee, threshold);
+
+  if (!left && !right) {
+    return false;
+  }
+
+  const shoulderY = (pose.leftShoulder.y + pose.rightShoulder.y) / 2;
+  const hip = pose.leftHip ?? pose.rightHip;
+  const knee = pose.leftKnee ?? pose.rightKnee;
+
+  return Boolean(hip && knee && hip.y - shoulderY > 0.08 && knee.y > hip.y);
 }
 
-/** Shoulders plus at least one arm — enough for curls and lateral raises. */
+/** Both shoulders and both elbows — one phantom arm is not enough. */
 export function hasUpperBodyVisible(pose: DetectedPose | null, threshold = 0.18): boolean {
   if (!pose) {
     return false;
@@ -237,10 +243,7 @@ export function hasUpperBodyVisible(pose: DetectedPose | null, threshold = 0.18)
     return false;
   }
 
-  return (
-    isVisible(pose.leftElbow, threshold) ||
-    isVisible(pose.rightElbow, threshold)
-  );
+  return isVisible(pose.leftElbow, threshold) && isVisible(pose.rightElbow, threshold);
 }
 
 export function formatPoseLog(pose: DetectedPose): string {
@@ -291,10 +294,10 @@ async function createLandmarker(
 async function createPoseDetector(): Promise<PoseDetector> {
   const localModel = absoluteUrl(LOCAL_MODEL_PATH);
   const loadAttempts: Array<{ wasmRoot: string; model: string; delegate: "GPU" | "CPU" }> = [
-    { wasmRoot: CDN_WASM_ROOT, model: localModel, delegate: "CPU" },
     { wasmRoot: CDN_WASM_ROOT, model: REMOTE_MODEL_PATH, delegate: "CPU" },
+    { wasmRoot: CDN_WASM_ROOT, model: localModel, delegate: "CPU" },
     { wasmRoot: absoluteUrl(`${LOCAL_WASM_ROOT}/`), model: localModel, delegate: "CPU" },
-    { wasmRoot: CDN_WASM_ROOT, model: localModel, delegate: "GPU" },
+    { wasmRoot: CDN_WASM_ROOT, model: REMOTE_MODEL_PATH, delegate: "GPU" },
   ];
   let landmarker: PoseLandmarker | undefined;
   let lastError: unknown;
@@ -322,7 +325,7 @@ async function createPoseDetector(): Promise<PoseDetector> {
   let lastDetectAt = 0;
   let lastPose: DetectedPose | null = null;
   let missedFrames = 0;
-  const smoother = new LandmarkSmoother(1.35, 2.4);
+  const smoother = new LandmarkSmoother(0.55, 0.7);
 
   const nextTimestamp = () => {
     let timestamp = performance.now();
@@ -360,7 +363,7 @@ async function createPoseDetector(): Promise<PoseDetector> {
           lastPose = mapDetectedPose(smoother.smooth(nextLandmarks, now));
         } else {
           missedFrames += 1;
-          if (missedFrames > 14) {
+          if (missedFrames > 5) {
             lastPose = null;
           }
         }

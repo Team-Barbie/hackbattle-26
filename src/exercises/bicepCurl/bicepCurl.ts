@@ -3,8 +3,8 @@ import type { DetectedPose } from "../../vision/poseDetector";
 
 export type BicepCurlState = "ARMS_EXTENDED" | "ARMS_CURLED";
 
-const EXTENDED_DEGREES = 148;
-const CURLED_DEGREES = 82;
+const EXTENDED_DEGREES = 158;
+const CURLED_DEGREES = 72;
 
 export function bicepCurlDegrees(pose: DetectedPose | null): number | null {
   return curlFromPose(pose).degrees;

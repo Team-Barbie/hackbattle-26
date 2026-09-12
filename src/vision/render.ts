@@ -20,9 +20,16 @@ export function drawPoseOverlay(
   video: HTMLVideoElement,
   pose: DetectedPose | null,
 ) {
-  if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+  const nextWidth = video.videoWidth || Math.round(canvas.clientWidth);
+  const nextHeight = video.videoHeight || Math.round(canvas.clientHeight);
+
+  if (nextWidth > 0 && nextHeight > 0 && (canvas.width !== nextWidth || canvas.height !== nextHeight)) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+
+  if (canvas.width < 2 || canvas.height < 2) {
+    return;
   }
 
   const context = canvas.getContext("2d");
