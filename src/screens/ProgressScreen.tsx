@@ -30,7 +30,7 @@ export default function ProgressScreen({ profile }: Props) {
       <section className="panel">
         <p className="panel-title">All sessions</p>
         {sessions.length === 0 ? (
-          <p className="feedback-note">No sessions yet — start your first one from Home.</p>
+          <p className="feedback-note">No sessions yet. Start your first one from Home.</p>
         ) : (
           <ul className="history-list">
             {sessions.map((session) => (
@@ -40,7 +40,7 @@ export default function ProgressScreen({ profile }: Props) {
                   {session.reps}/{session.target} reps
                 </span>
                 <span className="history-readiness">
-                  {session.readiness === null ? "—" : READINESS_LABELS[session.readiness]}
+                  {session.readiness === null ? "·" : READINESS_LABELS[session.readiness]}
                 </span>
               </li>
             ))}

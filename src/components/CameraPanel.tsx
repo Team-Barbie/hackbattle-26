@@ -9,7 +9,7 @@ function placeholderText(session: SquatSession): string {
     return "Camera unavailable";
   }
 
-  return "Camera is off — press Start camera";
+  return "Camera is off. Press Start camera.";
 }
 
 export default function CameraPanel({ session }: { session: SquatSession }) {
@@ -35,6 +35,9 @@ export default function CameraPanel({ session }: { session: SquatSession }) {
 
         {!isLive && (
           <div className="camera-placeholder">
+            {session.status === "starting" ? (
+              <div className="skeleton-block" aria-hidden="true" />
+            ) : null}
             <p>{placeholderText(session)}</p>
           </div>
         )}
