@@ -1,28 +1,32 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&display=swap");
+
 :root {
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  font-family: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: #0e0e16;
-  color: #ececf4;
+  background: #0a0a0c;
+  color: #f4f4ef;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 
-  --accent: #7c6cf6;
-  --accent-hover: #9385ff;
-  --accent-soft: #a99bff;
-  --on-accent: #0b0720;
-  --warn: #f0a85c;
-  --hold: #5ec8e5;
-  --surface: #14141f;
-  --raised: #262638;
-  --raised-hover: #32324a;
-  --track: #1e1e2c;
-  --line: #2c2c40;
-  --muted: #8f8fa6;
-  --dim: #bcbcd0;
-  --danger: #ff9fb0;
+  --text: #f4f4ef;
+  --accent: #e2ff3d;
+  --accent-strong: #f2ff00;
+  --accent-soft: #d5f24d;
+  --accent-hover: #eeff7a;
+  --on-accent: #0a0a0c;
+  --hold: #4da8ff;
+  --warn: #ffcf6b;
+  --danger: #ff6b6b;
+  --surface: #141417;
+  --raised: #1c1c20;
+  --raised-hover: #26262b;
+  --track: #1c1c20;
+  --line: #2b2b30;
+  --muted: #8d8d95;
+  --dim: #cfcfd6;
 }
 
 * {
@@ -39,8 +43,9 @@ body,
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(124, 108, 246, 0.16), transparent 38%),
-    #0e0e16;
+    radial-gradient(circle at 15% -10%, rgba(226, 255, 61, 0.14), transparent 40%),
+    radial-gradient(circle at 90% 0%, rgba(77, 168, 255, 0.1), transparent 45%),
+    #0a0a0c;
 }
 
 .app {
@@ -65,6 +70,7 @@ body {
 .app-header h1 {
   margin: 0;
   font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 900;
   letter-spacing: -0.04em;
 }
 
@@ -139,6 +145,7 @@ body {
 
 .camera-frame.is-live {
   border-color: var(--accent);
+  box-shadow: 0 20px 60px -10px rgba(226, 255, 61, 0.25);
 }
 
 .camera-stage {
@@ -183,7 +190,7 @@ body {
   right: 14px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(20, 20, 31, 0.82);
+  background: rgba(20, 20, 23, 0.82);
   color: var(--dim);
   font-size: 0.72rem;
   font-weight: 700;
@@ -207,7 +214,7 @@ body {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(11, 11, 18, 0.86);
+  background: rgba(10, 10, 12, 0.86);
   backdrop-filter: blur(4px);
 }
 
@@ -253,11 +260,11 @@ body {
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.03em;
-  color: var(--accent-soft);
+  color: var(--accent);
 }
 
 .reps-value.is-muted {
-  color: #ececf4;
+  color: var(--text);
 }
 
 .reps-target {
@@ -333,7 +340,7 @@ body {
 }
 
 .cue-headline.tone-up {
-  color: var(--accent-soft);
+  color: var(--accent);
 }
 
 .cue-headline.tone-hold {
@@ -377,7 +384,7 @@ body {
 }
 
 .readouts dd.is-up {
-  color: var(--accent-soft);
+  color: var(--accent);
 }
 
 .readouts dd.is-down {
@@ -432,7 +439,7 @@ button:disabled {
 
 button.secondary {
   background: var(--raised);
-  color: #ececf4;
+  color: var(--text);
 }
 
 button.secondary:hover:not(:disabled) {
@@ -455,13 +462,328 @@ button.step {
   display: grid;
   place-items: center;
   background: var(--raised);
-  color: #ececf4;
+  color: var(--text);
   font-size: 1.15rem;
   line-height: 1;
 }
 
 button.step:hover:not(:disabled) {
   background: var(--raised-hover);
+}
+
+/* Link-style buttons (back navigation) */
+
+.back-link,
+.back-link:hover:not(:disabled) {
+  min-width: 0;
+  padding: 8px 4px;
+  background: none;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: left;
+}
+
+.back-link:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* Auth shell: role select, login, session summary */
+
+.auth-shell {
+  position: relative;
+  min-height: 100vh;
+  width: min(560px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  text-align: center;
+}
+
+.auth-copy h1 {
+  margin: 6px 0 0;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.auth-subtitle {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.role-card:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px -12px rgba(226, 255, 61, 0.28);
+}
+
+.role-card:disabled {
+  background: var(--surface);
+  opacity: 0.55;
+}
+
+.role-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 1.1rem;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.role-card.is-disabled .role-badge {
+  background: var(--raised);
+  color: var(--muted);
+}
+
+.role-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.role-desc {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--dim);
+}
+
+.field em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.field input {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.summary-shell {
+  gap: 18px;
+}
+
+.summary-reps {
+  margin: 0;
+  font-size: clamp(4rem, 14vw, 6rem);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.summary-note {
+  margin: 0;
+  max-width: 380px;
+  color: var(--dim);
+}
+
+/* Session screen */
+
+.session-header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.finish-session {
+  margin-top: 16px;
+  background: var(--raised);
+  color: var(--text);
+}
+
+.finish-session:hover:not(:disabled) {
+  background: var(--raised-hover);
+}
+
+/* Patient dashboard */
+
+.dashboard {
+  width: min(1200px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.dashboard-header h1 {
+  margin: 4px 0 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-areas:
+    "plan plan streak"
+    "readiness history history"
+    "guide guide guide";
+}
+
+.plan-card {
+  grid-area: plan;
+}
+
+.streak-card {
+  grid-area: streak;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.readiness-card {
+  grid-area: readiness;
+}
+
+.history-card {
+  grid-area: history;
+}
+
+.guide-card {
+  grid-area: guide;
+}
+
+.plan-name {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.plan-detail {
+  margin: 0;
+  color: var(--muted);
+}
+
+.plan-cta {
+  margin-top: 8px;
+}
+
+.streak-value {
+  margin: 0;
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.streak-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.readiness-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.readiness-pip {
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--dim);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.readiness-pip:hover:not(:disabled) {
+  background: var(--raised-hover);
+}
+
+.readiness-pip.is-selected,
+.readiness-pip.is-selected:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.history-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 0.88rem;
+}
+
+.history-list li:last-child {
+  border-bottom: 0;
 }
 
 @media (max-width: 1000px) {
@@ -472,6 +794,22 @@ button.step:hover:not(:disabled) {
       "reps     feedback"
       "guide    guide"
       "controls controls";
+  }
+}
+
+@media (max-width: 720px) {
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "plan"
+      "streak"
+      "readiness"
+      "history"
+      "guide";
   }
 }
 
