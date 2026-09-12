@@ -12,15 +12,13 @@
   -webkit-font-smoothing: antialiased;
 
   --text: #efefef;
-  /* rgb(241,175,53) — the dominant fill in lanatires.com's own CSS (72 occurrences). */
-  --accent: #f1af35;
-  --accent-hover: #fcb504;
-  --accent-glow-light: #ffe3b1;
-  --accent-glow-mid: #b67421;
-  /* Dark text on the gold accent for contrast — a call I made, not a pulled value; see PhysioLoop project memory. */
-  --on-accent: #140d02;
+  --accent: #a855f7;
+  --accent-hover: #c084fc;
+  --accent-glow-light: #e9d5ff;
+  --accent-glow-mid: #7c3aed;
+  --on-accent: #ffffff;
   --hold: #0099ff;
-  --warn: #b67421;
+  --warn: #f0a85c;
   --danger: #eb484d;
   --surface: #1c1c1e;
   --raised: #29292c;
@@ -45,8 +43,8 @@ body,
 body {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at 50% 115%, rgba(182, 116, 33, 0.35), transparent 55%),
-    radial-gradient(circle at 50% 100%, rgba(255, 227, 177, 0.12), transparent 40%),
+    radial-gradient(ellipse at 50% 115%, rgba(124, 58, 237, 0.35), transparent 55%),
+    radial-gradient(circle at 50% 100%, rgba(233, 213, 255, 0.12), transparent 40%),
     #000;
 }
 
@@ -324,7 +322,7 @@ body {
 
 .camera-frame.is-live {
   border-color: var(--accent);
-  box-shadow: 0 20px 60px -10px rgba(241, 175, 53, 0.25);
+  box-shadow: 0 20px 60px -10px rgba(168, 85, 247, 0.25);
 }
 
 .camera-stage {
