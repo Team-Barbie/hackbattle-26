@@ -70,4 +70,16 @@ export const exerciseGuides: Record<ExerciseId, ExerciseGuide> = {
     ],
     cameraTip: "Stand side-on with your head, hips, knees, and ankles visible.",
   },
+  custom: {
+    name: "Custom recorded exercise",
+    summary: "Record one clear reference repetition, then practise against it.",
+    steps: [
+      "Start the camera and stand fully inside the frame.",
+      "Press Record reference and perform one slow, complete repetition.",
+      "Press Stop and use after returning to the starting position.",
+      "Repeat the movement while PhysioLoop follows your reference timeline.",
+      "Use the live match score to stay close to the recorded movement.",
+    ],
+    cameraTip: "Keep the same camera position and orientation for recording and practice.",
+  },
 };
