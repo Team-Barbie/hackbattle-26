@@ -8,7 +8,7 @@ type Pose = {
   head: Point;
 };
 
-const ACCENT = "#a855f7";
+const ACCENT = "#3b5bdb";
 const BONE = "#efefef";
 
 /** Side-on silhouette, normalised 0-1: standing tall. */
