@@ -6,6 +6,15 @@ import {
 } from "../biomechanics/thighElevation";
 import { nextCue, type Cue, type MoveDirection } from "../coaching/cues";
 import { createCycleCounter } from "../exercises/cycleCounter";
+import {
+  clearReferenceExercise,
+  findReferenceMatch,
+  loadReferenceExercise,
+  poseFeatureFrame,
+  saveReferenceExercise,
+  type PoseFeatureFrame,
+  type ReferenceExercise,
+} from "../exercises/custom/referenceExercise";
 import { usesUpperBody, type ExerciseId } from "../exercises/exerciseCatalog";
 import {
   detectBicepCurlState,
@@ -50,7 +59,11 @@ export type MovementState =
   | ShoulderRaiseState
   | KneeRaiseState
   | LateralRaiseState
-  | BicepCurlState;
+  | BicepCurlState
+  | "NO_REFERENCE"
+  | "RECORDING"
+  | "MATCHED"
+  | "ADJUST";
 
 const PUBLISH_INTERVAL_MS = 120;
 const DIRECTION_DEADBAND = 0.03;
@@ -59,6 +72,11 @@ const CUE_SPEAK_DELAY_MS = 350;
 const REP_ANNOUNCEMENT_PRIORITY_MS = 1200;
 const FULL_BODY_GRACE_MS = 500;
 const BODY_STABILITY_MS = 1000;
+const REFERENCE_CAPTURE_INTERVAL_MS = 100;
+const MIN_REFERENCE_FRAMES = 15;
+const MAX_REFERENCE_FRAMES = 300;
+const REFERENCE_MATCH_THRESHOLD = 68;
+const REFERENCE_PROGRESS_THRESHOLD = 55;
 
 function cancelSpeech() {
   if ("speechSynthesis" in window) {
@@ -112,6 +130,10 @@ function stateLabel(state: MovementState | null): string {
     LATERAL_UP: "Arms out",
     ARMS_EXTENDED: "Arms long",
     ARMS_CURLED: "Curled",
+    NO_REFERENCE: "No reference",
+    RECORDING: "Recording",
+    MATCHED: "Matched",
+    ADJUST: "Adjust position",
   };
 
   return state ? labels[state] : "—";
@@ -158,6 +180,14 @@ export function useExerciseSession() {
   const lastSpokenCueRef = useRef("");
   const lastSpokenRepRef = useRef(0);
   const suppressCuesUntilRef = useRef(0);
+  const recordingReferenceRef = useRef(false);
+  const recordedFramesRef = useRef<PoseFeatureFrame[]>([]);
+  const lastReferenceCaptureAtRef = useRef(0);
+  const referenceProgressRef = useRef(0);
+  const awaitingReferenceRestartRef = useRef(false);
+  const customRepCountRef = useRef(0);
+  const lastCustomRepAtRef = useRef(0);
+  const lastCustomScoreRef = useRef<number | null>(null);
 
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +197,14 @@ export function useExerciseSession() {
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [exerciseId, setExerciseId] = useState<ExerciseId>("squat");
+  const [referenceExercise, setReferenceExercise] = useState<ReferenceExercise | null>(() =>
+    loadReferenceExercise(),
+  );
+  const referenceExerciseRef = useRef(referenceExercise);
+  const [recordingReference, setRecordingReference] = useState(false);
+  const [referenceFrameCount, setReferenceFrameCount] = useState(0);
+  const [referenceProgress, setReferenceProgress] = useState(0);
+  const [referenceMessage, setReferenceMessage] = useState<string | null>(null);
 
   const [tracking, setTracking] = useState(false);
   const [movementState, setMovementState] = useState<MovementState | null>(null);
@@ -175,6 +213,7 @@ export function useExerciseSession() {
   const [reps, setReps] = useState(0);
   const [lastRepDepth, setLastRepDepth] = useState<number | null>(null);
   const [targetReps, setTargetReps] = useState(DEFAULT_TARGET_REPS);
+  const isLive = status === "live";
 
   const stopTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -235,6 +274,8 @@ export function useExerciseSession() {
 
   const stopCamera = useCallback(() => {
     stopTracks();
+    recordingReferenceRef.current = false;
+    setRecordingReference(false);
     setStatus("stopped");
     setError(null);
     movementStateRef.current = null;
@@ -251,6 +292,14 @@ export function useExerciseSession() {
     kneeCounterRef.current.reset();
     lateralCounterRef.current.reset();
     curlCounterRef.current.reset();
+    customRepCountRef.current = 0;
+    referenceProgressRef.current = 0;
+    awaitingReferenceRestartRef.current = false;
+    lastCustomRepAtRef.current = 0;
+    lastCustomScoreRef.current = null;
+    recordingReferenceRef.current = false;
+    recordedFramesRef.current = [];
+    lastReferenceCaptureAtRef.current = 0;
     movementStateRef.current = null;
     ascentLockedRef.current = false;
     setReps(0);
@@ -258,6 +307,10 @@ export function useExerciseSession() {
     setMovementState(null);
     setMovementMetric(null);
     setDirection("still");
+    setRecordingReference(false);
+    setReferenceFrameCount(0);
+    setReferenceProgress(0);
+    setReferenceMessage(null);
   }, []);
 
   const toggleSkeleton = useCallback(() => {
@@ -275,6 +328,73 @@ export function useExerciseSession() {
     },
     [resetSession],
   );
+
+  const startReferenceRecording = useCallback(() => {
+    if (!isLive || exerciseId !== "custom") {
+      return;
+    }
+
+    resetSession();
+    recordedFramesRef.current = [];
+    lastReferenceCaptureAtRef.current = 0;
+    recordingReferenceRef.current = true;
+    setRecordingReference(true);
+    setReferenceMessage("Recording one complete repetition…");
+    movementStateRef.current = "RECORDING";
+    setMovementState("RECORDING");
+  }, [exerciseId, isLive, resetSession]);
+
+  const stopReferenceRecording = useCallback(() => {
+    recordingReferenceRef.current = false;
+    setRecordingReference(false);
+
+    const frames = recordedFramesRef.current;
+
+    if (frames.length < MIN_REFERENCE_FRAMES) {
+      setReferenceMessage("Recording was too short. Record one slow, complete repetition.");
+      setMovementState(referenceExerciseRef.current ? "ADJUST" : "NO_REFERENCE");
+      return;
+    }
+
+    const reference: ReferenceExercise = {
+      version: 1,
+      name: "Custom recorded exercise",
+      recordedAt: new Date().toISOString(),
+      durationMs: (frames.length - 1) * REFERENCE_CAPTURE_INTERVAL_MS,
+      frames: frames.map((frame) => [...frame]),
+    };
+
+    try {
+      saveReferenceExercise(reference);
+      referenceExerciseRef.current = reference;
+      setReferenceExercise(reference);
+      referenceProgressRef.current = 0;
+      awaitingReferenceRestartRef.current = false;
+      setReferenceProgress(0);
+      setReferenceMessage(
+        `Reference saved: ${(reference.durationMs / 1000).toFixed(1)} seconds. Repeat it now.`,
+      );
+      setMovementState("ADJUST");
+    } catch {
+      setReferenceMessage("The reference could not be saved in this browser.");
+    }
+  }, []);
+
+  const clearReference = useCallback(() => {
+    clearReferenceExercise();
+    referenceExerciseRef.current = null;
+    setReferenceExercise(null);
+    recordedFramesRef.current = [];
+    referenceProgressRef.current = 0;
+    awaitingReferenceRestartRef.current = false;
+    customRepCountRef.current = 0;
+    setReferenceFrameCount(0);
+    setReferenceProgress(0);
+    setReferenceMessage("Reference cleared.");
+    setMovementState("NO_REFERENCE");
+    setMovementMetric(null);
+    setReps(0);
+  }, []);
 
   const toggleAudio = useCallback(() => {
     setAudioEnabled((enabled) => !enabled);
@@ -318,8 +438,6 @@ export function useExerciseSession() {
       cancelled = true;
     };
   }, []);
-
-  const isLive = status === "live";
 
   useEffect(() => {
     if (!isLive || !poseReady) {
@@ -377,6 +495,7 @@ export function useExerciseSession() {
         const readings = thighReadingsFromPose(analysisPose);
         let metric: number | null = null;
         let state: MovementState | null = null;
+        let customCompleted = false;
 
         if (exerciseTracking && exerciseId === "squat") {
           metric = combineThighElevations(readings.left, readings.right);
@@ -415,6 +534,75 @@ export function useExerciseSession() {
               ? movementStateRef.current
               : null;
           state = detectBicepCurlState(metric, previous);
+        } else if (exerciseTracking && exerciseId === "custom") {
+          const feature = poseFeatureFrame(analysisPose);
+          const reference = referenceExerciseRef.current;
+
+          if (recordingReferenceRef.current) {
+            state = "RECORDING";
+
+            if (
+              feature &&
+              now - lastReferenceCaptureAtRef.current >= REFERENCE_CAPTURE_INTERVAL_MS &&
+              recordedFramesRef.current.length < MAX_REFERENCE_FRAMES
+            ) {
+              recordedFramesRef.current.push(feature);
+              lastReferenceCaptureAtRef.current = now;
+              setReferenceFrameCount(recordedFramesRef.current.length);
+            }
+          } else if (!reference) {
+            state = "NO_REFERENCE";
+          } else if (feature) {
+            const lastIndex = reference.frames.length - 1;
+            let match;
+
+            if (awaitingReferenceRestartRef.current) {
+              match = findReferenceMatch(
+                feature,
+                reference,
+                0,
+                Math.max(2, Math.floor(lastIndex * 0.12)),
+              );
+
+              if (match && match.score >= REFERENCE_MATCH_THRESHOLD + 5) {
+                awaitingReferenceRestartRef.current = false;
+                referenceProgressRef.current = 0;
+                setReferenceProgress(0);
+              }
+            } else {
+              const progress = referenceProgressRef.current;
+              match = findReferenceMatch(feature, reference, progress - 2, progress + 10);
+
+              if (match && match.score >= REFERENCE_PROGRESS_THRESHOLD) {
+                const nextProgress = Math.max(progress, match.index);
+
+                if (nextProgress !== progress) {
+                  referenceProgressRef.current = nextProgress;
+                  setReferenceProgress(
+                    lastIndex > 0 ? Math.round((nextProgress / lastIndex) * 100) : 100,
+                  );
+                }
+
+                if (
+                  nextProgress >= lastIndex - 2 &&
+                  match.score >= REFERENCE_MATCH_THRESHOLD &&
+                  now - lastCustomRepAtRef.current >= 1000
+                ) {
+                  customRepCountRef.current += 1;
+                  lastCustomRepAtRef.current = now;
+                  awaitingReferenceRestartRef.current = true;
+                  customCompleted = true;
+                }
+              }
+            }
+
+            metric = match?.score ?? 0;
+            lastCustomScoreRef.current = metric;
+            state = metric >= REFERENCE_MATCH_THRESHOLD ? "MATCHED" : "ADJUST";
+          } else {
+            metric = lastCustomScoreRef.current;
+            state = movementStateRef.current;
+          }
         }
 
         if (exerciseTracking) {
@@ -427,6 +615,13 @@ export function useExerciseSession() {
           kneeCounterRef.current.cancelCurrentRep();
           lateralCounterRef.current.cancelCurrentRep();
           curlCounterRef.current.cancelCurrentRep();
+
+          if (exerciseId === "custom" && !recordingReferenceRef.current) {
+            referenceProgressRef.current = 0;
+            awaitingReferenceRestartRef.current = false;
+            lastCustomScoreRef.current = null;
+            setReferenceProgress(0);
+          }
         }
 
         let completedRep = false;
@@ -459,6 +654,9 @@ export function useExerciseSession() {
             state === "ARMS_EXTENDED" ? "REST" : state === "ARMS_CURLED" ? "ACTIVE" : null;
           completedRep = curlCounterRef.current.update(phase);
           currentCount = curlCounterRef.current.count;
+        } else if (exerciseTracking && exerciseId === "custom") {
+          completedRep = customCompleted;
+          currentCount = customRepCountRef.current;
         }
 
         if (completedRep) {
@@ -588,7 +786,9 @@ export function useExerciseSession() {
   useEffect(() => cancelSpeech, []);
 
   const metricLabel =
-    exerciseId === "shoulder-raise"
+    exerciseId === "custom"
+      ? "Reference match"
+      : exerciseId === "shoulder-raise"
       ? "Shoulder angle"
       : exerciseId === "lateral-raise"
         ? "Arm lift"
@@ -596,7 +796,11 @@ export function useExerciseSession() {
           ? "Elbow"
           : "Thigh angle";
   const metricDisplay =
-    exerciseId === "squat" || exerciseId === "knee-raise"
+    exerciseId === "custom"
+      ? movementMetric === null
+        ? "—"
+        : `${Math.round(movementMetric)}%`
+      : exerciseId === "squat" || exerciseId === "knee-raise"
       ? formatDegrees(thighAngleDegrees(movementMetric))
       : formatDegrees(movementMetric);
 
@@ -613,6 +817,14 @@ export function useExerciseSession() {
     videoAspect,
     exerciseId,
     selectExercise,
+    referenceExercise,
+    recordingReference,
+    referenceFrameCount,
+    referenceProgress,
+    referenceMessage,
+    startReferenceRecording,
+    stopReferenceRecording,
+    clearReference,
     tracking,
     movementState,
     movementStateLabel: stateLabel(movementState),
