@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import TabBar, { type PatientTab } from "./components/TabBar";
 import type { ExerciseId } from "./exercises/exerciseCatalog";
 import { exerciseName } from "./exercises/exerciseCatalog";
@@ -16,6 +16,16 @@ import SessionScreen, { type SessionOutcome } from "./screens/SessionScreen";
 import SessionSummaryScreen from "./screens/SessionSummaryScreen";
 import TherapistScreen from "./screens/TherapistScreen";
 import {
+  fetchClinicPlan,
+  fetchClinicSessions,
+  isClinicCloudEnabled,
+  normalizeClinicCode,
+  publishClinicPlan,
+  publishClinicSession,
+  subscribeClinic,
+  type ClinicSession,
+} from "./state/clinicCloud";
+import {
   clearPatientProfile,
   clearSessionHistory,
   createPatientProfile,
@@ -29,6 +39,7 @@ import {
   loadStoredPrescription,
   publishPrescription,
   resetPrescription,
+  saveStoredPrescription,
   type StoredPrescription,
 } from "./state/prescriptionStore";
 
@@ -61,11 +72,7 @@ function practicePlan(exerciseId: ExerciseId, source: Prescription): Prescriptio
     therapist: source.therapist,
     title: `Practice: ${prescribed?.referenceExercise?.name ?? exerciseName(exerciseId)}`,
     steps: [
-      createPlanStep(
-        exerciseId,
-        prescribed?.targetReps ?? 8,
-        prescribed?.referenceExercise,
-      ),
+      createPlanStep(exerciseId, prescribed?.targetReps ?? 8, prescribed?.referenceExercise),
     ],
   };
 }
@@ -78,22 +85,109 @@ function referenceRecordingPlan(source: Prescription): Prescription {
   };
 }
 
+function isRemoteNewer(remote: StoredPrescription, local: StoredPrescription): boolean {
+  if (!remote.publishedAt) {
+    return false;
+  }
+
+  if (!local.publishedAt) {
+    return true;
+  }
+
+  return Date.parse(remote.publishedAt) >= Date.parse(local.publishedAt);
+}
+
+function applyRemotePlan(
+  next: StoredPrescription,
+  routeName: Route["name"],
+  local: StoredPrescription,
+  setStored: (stored: StoredPrescription) => void,
+) {
+  if (routeName === "session" || routeName === "readiness" || routeName === "therapist-record") {
+    return;
+  }
+
+  if (!isRemoteNewer(next, local)) {
+    return;
+  }
+
+  setStored(saveStoredPrescription(next));
+}
+
 export default function App() {
+  const cloudEnabled = isClinicCloudEnabled();
   const [profile, setProfile] = useState<PatientProfile | null>(() => loadPatientProfile());
   const [stored, setStored] = useState<StoredPrescription>(() =>
     consumeSharedPlanFromUrl() ?? loadStoredPrescription(),
   );
+  const [clinicSessions, setClinicSessions] = useState<ClinicSession[]>([]);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(() =>
     loadPatientProfile() ? { name: "home" } : { name: "role" },
   );
+  const routeRef = useRef(route);
+  const storedRef = useRef(stored);
+  routeRef.current = route;
+  storedRef.current = stored;
 
   const plan = stored.plan;
+  const clinicCode = normalizeClinicCode(profile?.clinicCode ?? stored.plan.accessCode);
 
   const go = useCallback((next: Route) => {
     setRoute(next);
     window.scrollTo({ top: 0 });
   }, []);
+
+  useEffect(() => {
+    if (!cloudEnabled || !clinicCode) {
+      setClinicSessions([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const remote = await fetchClinicPlan(clinicCode);
+        if (!cancelled && remote) {
+          applyRemotePlan(remote, routeRef.current.name, storedRef.current, setStored);
+        }
+      } catch {
+        // Stay on the last local cache if the clinic is unreachable.
+      }
+
+      try {
+        const sessions = await fetchClinicSessions(clinicCode);
+        if (!cancelled) {
+          setClinicSessions(sessions);
+        }
+      } catch {
+        if (!cancelled) {
+          setClinicSessions([]);
+        }
+      }
+    })();
+
+    const unsubscribe = subscribeClinic(clinicCode, {
+      onPlan(next) {
+        applyRemotePlan(next, routeRef.current.name, storedRef.current, setStored);
+      },
+      onSession(session) {
+        setClinicSessions((current) => {
+          if (current.some((item) => item.id === session.id)) {
+            return current;
+          }
+
+          return [session, ...current].slice(0, 40);
+        });
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [clinicCode, cloudEnabled]);
 
   function handleSelectRole(role: Role) {
     if (role === "therapist") {
@@ -104,14 +198,41 @@ export default function App() {
     go(profile ? { name: "home" } : { name: "login" });
   }
 
-  function handleLogin(name: string, code: string) {
-    if (!codesMatch(plan.accessCode, code)) {
+  async function handleLogin(name: string, code: string) {
+    const trimmedCode = code.trim();
+
+    if (cloudEnabled) {
+      if (!trimmedCode) {
+        setLoginError("Enter the access code your therapist published.");
+        return;
+      }
+
+      try {
+        const remote = await fetchClinicPlan(trimmedCode);
+
+        if (!remote) {
+          setLoginError("No published plan for that code yet. Ask your therapist to publish first.");
+          return;
+        }
+
+        setLoginError(null);
+        setStored(saveStoredPrescription(remote));
+        setProfile(createPatientProfile(name, normalizeClinicCode(trimmedCode)));
+        go({ name: "home" });
+      } catch (error) {
+        setLoginError(error instanceof Error ? error.message : "Could not reach the clinic.");
+      }
+
+      return;
+    }
+
+    if (!codesMatch(plan.accessCode, trimmedCode)) {
       setLoginError("That therapist code does not match this plan.");
       return;
     }
 
     setLoginError(null);
-    setProfile(createPatientProfile(name));
+    setProfile(createPatientProfile(name, plan.accessCode));
     go({ name: "home" });
   }
 
@@ -145,13 +266,29 @@ export default function App() {
       durationMs: outcome.durationMs,
       steps: outcome.steps,
     });
+    const latest = updated.sessions[updated.sessions.length - 1];
+    const sessionClinic = normalizeClinicCode(updated.clinicCode ?? sessionPlan.accessCode);
 
     setProfile(updated);
-    go({ name: "summary", record: updated.sessions[updated.sessions.length - 1] });
+
+    if (cloudEnabled && sessionClinic && latest) {
+      void publishClinicSession(sessionClinic, updated.name, latest).catch(() => {
+        // Local history still saved.
+      });
+    }
+
+    go({ name: "summary", record: latest });
   }
 
-  function handlePublish(nextPlan: Prescription) {
-    setStored(publishPrescription(nextPlan));
+  async function handlePublish(nextPlan: Prescription) {
+    const local = publishPrescription(nextPlan);
+    setStored(local);
+
+    if (!cloudEnabled) {
+      return;
+    }
+
+    await publishClinicPlan(local);
   }
 
   function handleResetPrescription() {
@@ -164,6 +301,8 @@ export default function App() {
         stored={stored}
         initialDraft={route.draft}
         patient={profile}
+        clinicSessions={clinicSessions}
+        cloudEnabled={cloudEnabled}
         onPublish={handlePublish}
         onResetToDefault={handleResetPrescription}
         onBack={() => go({ name: "role" })}
@@ -199,8 +338,9 @@ export default function App() {
     return (
       <LoginScreen
         therapistName={plan.therapist}
+        cloudEnabled={cloudEnabled}
         onLogin={handleLogin}
-        requiresCode={Boolean(plan.accessCode)}
+        requiresCode={cloudEnabled || Boolean(plan.accessCode)}
         loginError={loginError}
         onBack={() => {
           setLoginError(null);
@@ -211,7 +351,7 @@ export default function App() {
   }
 
   if (route.name === "role" || !profile) {
-    return <RoleSelectScreen onSelectRole={handleSelectRole} />;
+    return <RoleSelectScreen cloudEnabled={cloudEnabled} onSelectRole={handleSelectRole} />;
   }
 
   if (route.name === "readiness") {
@@ -295,6 +435,7 @@ export default function App() {
           profile={profile}
           plan={plan}
           publishedAt={stored.publishedAt}
+          liveClinic={cloudEnabled && Boolean(clinicCode)}
           onStartSession={startPrescribed}
           onOpenProgram={() => go({ name: "program" })}
         />
