@@ -1,7 +1,6 @@
 import { isExerciseId, type ExerciseId } from "../exercises/exerciseCatalog";
 import type { FormIssueType } from "../exercises/formIssues";
 import { ISSUE_LABELS } from "../exercises/formIssues";
-import { normalizeClinicCode } from "./clinicCode";
 import { localDay } from "./dates";
 
 export type StepResult = {
@@ -29,8 +28,6 @@ export type SessionRecord = {
 export type PatientProfile = {
   name: string;
   createdAt: string;
-  /** Normalized clinic access code used to fetch the live therapist plan. */
-  clinicCode?: string;
   sessions: SessionRecord[];
 };
 
@@ -62,39 +59,6 @@ function sanitiseStep(step: Partial<StepResult> | undefined): StepResult | null 
   };
 }
 
-export function sanitiseSessionRecord(raw: unknown, fallbackId?: string): SessionRecord | null {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-
-  const session = raw as Partial<SessionRecord>;
-
-  if (!Array.isArray(session.steps)) {
-    return null;
-  }
-
-  const steps = session.steps
-    .map((step) => sanitiseStep(step))
-    .filter((step): step is StepResult => step !== null);
-  const id = typeof session.id === "string" && session.id.trim() ? session.id : fallbackId;
-
-  if (!id) {
-    return null;
-  }
-
-  const readiness = session.readiness;
-
-  return {
-    id,
-    date: typeof session.date === "string" ? session.date : new Date().toISOString(),
-    planTitle: typeof session.planTitle === "string" ? session.planTitle : "",
-    therapist: typeof session.therapist === "string" ? session.therapist : "",
-    readiness: typeof readiness === "number" && Number.isFinite(readiness) ? readiness : null,
-    durationMs: Number.isFinite(Number(session.durationMs)) ? Number(session.durationMs) : 0,
-    steps,
-  };
-}
-
 function save(profile: PatientProfile) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
@@ -117,39 +81,27 @@ export function loadPatientProfile(): PatientProfile | null {
       return null;
     }
 
-    const clinicCode = normalizeClinicCode(parsed.clinicCode) || undefined;
-
     return {
       name: parsed.name,
       createdAt: parsed.createdAt ?? new Date().toISOString(),
-      clinicCode,
       sessions: (parsed.sessions ?? [])
-        .map((session, index) => sanitiseSessionRecord(session, `session-${index}`))
-        .filter((session): session is SessionRecord => session !== null),
+        .filter((session) => Array.isArray(session.steps))
+        .map((session) => ({
+          ...session,
+          steps: session.steps
+            .map((step) => sanitiseStep(step))
+            .filter((step): step is StepResult => step !== null),
+        })),
     };
   } catch {
     return null;
   }
 }
 
-export function createPatientProfile(name: string, clinicCode?: string): PatientProfile {
-  const profile: PatientProfile = {
-    name,
-    createdAt: new Date().toISOString(),
-    clinicCode: normalizeClinicCode(clinicCode) || undefined,
-    sessions: [],
-  };
+export function createPatientProfile(name: string): PatientProfile {
+  const profile: PatientProfile = { name, createdAt: new Date().toISOString(), sessions: [] };
   save(profile);
   return profile;
-}
-
-export function setPatientClinicCode(profile: PatientProfile, clinicCode: string): PatientProfile {
-  const updated: PatientProfile = {
-    ...profile,
-    clinicCode: normalizeClinicCode(clinicCode) || undefined,
-  };
-  save(updated);
-  return updated;
 }
 
 export function recordSession(

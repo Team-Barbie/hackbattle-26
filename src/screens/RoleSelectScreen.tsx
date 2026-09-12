@@ -4,11 +4,10 @@ import Icon from "../components/Icon";
 export type Role = "patient" | "therapist";
 
 type Props = {
-  cloudEnabled: boolean;
   onSelectRole: (role: Role) => void;
 };
 
-export default function RoleSelectScreen({ cloudEnabled, onSelectRole }: Props) {
+export default function RoleSelectScreen({ onSelectRole }: Props) {
   return (
     <div className="screen screen--centered">
       <div className="hero">
@@ -46,11 +45,7 @@ export default function RoleSelectScreen({ cloudEnabled, onSelectRole }: Props) 
         </button>
       </div>
 
-      <p className="footnote">
-        {cloudEnabled
-          ? "Therapist publishes an access code. Patients on any device sign in with that code to get the live plan."
-          : "Plans stay on this device until you add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env."}
-      </p>
+      <p className="footnote">Everything stays on this device. No account required for the demo.</p>
     </div>
   );
 }

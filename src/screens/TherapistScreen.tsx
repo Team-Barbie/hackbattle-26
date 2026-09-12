@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Brand from "../components/Brand";
 import Icon from "../components/Icon";
 import ProgressRing from "../components/ProgressRing";
@@ -14,7 +14,6 @@ import {
   type PlanStep,
   type Prescription,
 } from "../exercises/prescription";
-import { type ClinicSession } from "../state/clinicCloud";
 import { sharedPlanUrl } from "../state/prescriptionStore";
 import {
   currentStreak,
@@ -29,9 +28,7 @@ type Props = {
   stored: StoredPrescription;
   initialDraft?: Prescription;
   patient: PatientProfile | null;
-  clinicSessions: ClinicSession[];
-  cloudEnabled: boolean;
-  onPublish: (plan: Prescription) => void | Promise<void>;
+  onPublish: (plan: Prescription) => void;
   onResetToDefault: () => void;
   onBack: () => void;
   onPreviewAsPatient: () => void;
@@ -63,8 +60,6 @@ export default function TherapistScreen({
   stored,
   initialDraft,
   patient,
-  clinicSessions,
-  cloudEnabled,
   onPublish,
   onResetToDefault,
   onBack,
@@ -75,10 +70,7 @@ export default function TherapistScreen({
     clonePrescription(initialDraft ?? stored.plan),
   );
   const [justPublished, setJustPublished] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [publishError, setPublishError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
-  const editedRef = useRef(Boolean(initialDraft));
   const customExercise =
     loadReferenceExercise() ??
     draft.steps.find((step) => step.exerciseId === "custom")?.referenceExercise ??
@@ -86,18 +78,9 @@ export default function TherapistScreen({
   const exerciseOptions = EXERCISES.filter((exercise) => exercise.id !== "custom");
   const dirty =
     !samePlan(draft, stored.plan) || (draft.accessCode ?? "") !== (stored.plan.accessCode ?? "");
-  const missingCode = cloudEnabled && !draft.accessCode?.trim();
-
-  useEffect(() => {
-    if (!editedRef.current) {
-      setDraft(clonePrescription(stored.plan));
-    }
-  }, [stored]);
 
   function touch() {
-    editedRef.current = true;
     setJustPublished(false);
-    setPublishError(null);
   }
 
   function patchStep(id: string, patch: Partial<PlanStep>) {
@@ -137,29 +120,16 @@ export default function TherapistScreen({
     touch();
   }
 
-  async function handlePublish() {
-    setPublishing(true);
-    setPublishError(null);
+  function handlePublish() {
+    onPublish(draft);
+    setJustPublished(true);
     setCopyState("idle");
-
-    try {
-      await onPublish(draft);
-      editedRef.current = false;
-      setJustPublished(true);
-    } catch (error) {
-      setJustPublished(false);
-      setPublishError(error instanceof Error ? error.message : "Could not publish to the clinic.");
-    } finally {
-      setPublishing(false);
-    }
   }
 
   function handleReset() {
-    editedRef.current = false;
     onResetToDefault();
     setDraft(clonePrescription(DEFAULT_PRESCRIPTION));
     setJustPublished(false);
-    setPublishError(null);
     setCopyState("idle");
   }
 
@@ -186,11 +156,7 @@ export default function TherapistScreen({
 
       <header className="page__header">
         <h1>Exercise plan</h1>
-        <p className="lede">
-          {cloudEnabled
-            ? "Publish sends this plan to every patient who signs in with the access code."
-            : "Patients complete these in order. Publish to update what they see on this device."}
-        </p>
+        <p className="lede">Patients complete these in order. Publish to update what they see.</p>
       </header>
 
       <div className="studio__grid">
@@ -227,11 +193,7 @@ export default function TherapistScreen({
                   }));
                   touch();
                 }}
-                placeholder={
-                  cloudEnabled
-                    ? "Required. Patients on other devices sign in with this code"
-                    : "Optional. Required at patient sign-in if set"
-                }
+                placeholder="Optional. Required at patient sign-in if set"
                 autoComplete="off"
               />
             </label>
@@ -376,25 +338,11 @@ export default function TherapistScreen({
             </div>
           </div>
 
-          {publishError && <p className="notice notice--error">{publishError}</p>}
-          {missingCode && (
-            <p className="notice">Set an access code so patients on other laptops can open this plan.</p>
-          )}
-          {!cloudEnabled && (
-            <p className="notice">
-              Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to sync. Until then, use Copy
-              patient link.
-            </p>
-          )}
-
           <div className="editor-actions">
             {stored.publishedAt && (
               <span className="label" style={{ marginRight: "auto", alignSelf: "center" }}>
                 Published {formatDay(stored.publishedAt).toLowerCase()}
                 {dirty ? " · unpublished changes" : ""}
-                {cloudEnabled && stored.plan.accessCode && !dirty && justPublished
-                  ? ` · clinic ${stored.plan.accessCode}`
-                  : ""}
               </span>
             )}
             <button type="button" className="btn btn--outline" onClick={handleReset}>
@@ -409,19 +357,17 @@ export default function TherapistScreen({
             <button
               type="button"
               className="btn"
-              onClick={() => void handlePublish()}
-              disabled={
-                publishing || draft.steps.length === 0 || missingCode || (!dirty && justPublished)
-              }
+              onClick={handlePublish}
+              disabled={draft.steps.length === 0 || (!dirty && justPublished)}
             >
-              {publishing ? "Publishing…" : justPublished && !dirty ? "Published" : "Publish"}
+              {justPublished && !dirty ? "Published" : "Publish"}
             </button>
           </div>
         </section>
 
         <aside className="studio__side">
           <section className="card" aria-label="Patient">
-            <h2 className="section-title">This device</h2>
+            <h2 className="section-title">Patient</h2>
             {patient ? (
               <div className="row">
                 <div>
@@ -433,44 +379,11 @@ export default function TherapistScreen({
               </div>
             ) : (
               <p className="empty">
-                <strong>No patient on this laptop</strong>
-                Local preview sessions stay here. Clinic sessions appear below.
+                <strong>No patient on this device</strong>
+                Sessions appear here once someone signs in as a patient.
               </p>
             )}
           </section>
-
-          {cloudEnabled && (
-            <section className="card" aria-label="Clinic patients">
-              <h2 className="section-title">Clinic patients</h2>
-              {clinicSessions.length === 0 ? (
-                <p className="empty">
-                  <strong>Waiting for sessions</strong>
-                  After a patient signs in with this access code and finishes a workout, it shows up
-                  here.
-                </p>
-              ) : (
-                <ul className="list">
-                  {clinicSessions.slice(0, 8).map((session) => (
-                    <li key={session.id} className="row row--leading">
-                      <div className="ring-sm" style={{ width: 32, height: 32 }}>
-                        <ProgressRing value={sessionCompletion(session)} thickness={0.14} />
-                      </div>
-                      <div>
-                        <p className="row__title">
-                          {session.patientName} · {formatDay(session.date)}
-                        </p>
-                        <p className="row__sub">
-                          {sessionReps(session)}/{sessionTarget(session)} reps ·{" "}
-                          {formatDuration(session.durationMs)}
-                        </p>
-                      </div>
-                      <span className="row__end">{Math.round(sessionCompletion(session) * 100)}%</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
 
           {patient && recent.length > 0 && (
             <section className="card" aria-label="Recent sessions">

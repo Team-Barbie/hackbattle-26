@@ -99,27 +99,20 @@ export function loadStoredPrescription(): StoredPrescription {
   }
 }
 
-export function saveStoredPrescription(stored: StoredPrescription): StoredPrescription {
-  const sanitised = sanitisePrescription(stored.plan) ?? clonePrescription(DEFAULT_PRESCRIPTION);
-  const next: StoredPrescription = {
+export function publishPrescription(plan: Prescription): StoredPrescription {
+  const sanitised = sanitisePrescription(plan) ?? clonePrescription(DEFAULT_PRESCRIPTION);
+  const stored: StoredPrescription = {
     plan: sanitised,
-    publishedAt: stored.publishedAt,
+    publishedAt: new Date().toISOString(),
   };
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   } catch {
     // Still hand the plan to the running app even if it can't persist.
   }
 
-  return next;
-}
-
-export function publishPrescription(plan: Prescription): StoredPrescription {
-  return saveStoredPrescription({
-    plan,
-    publishedAt: new Date().toISOString(),
-  });
+  return stored;
 }
 
 export function resetPrescription(): StoredPrescription {
