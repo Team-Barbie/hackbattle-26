@@ -212,6 +212,23 @@ body {
   line-height: 1.6;
 }
 
+.squat-state {
+  margin: 8px 0 0;
+  color: #93a399;
+  font-size: clamp(2.4rem, 6vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.squat-state.is-up {
+  color: #3dd68c;
+}
+
+.squat-state.is-down {
+  color: #f3c16b;
+}
+
 .camera-controls {
   display: flex;
   flex-wrap: wrap;

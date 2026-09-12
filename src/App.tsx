@@ -7,7 +7,7 @@ export default function App() {
         <p className="app-eyebrow">HackBattle 26</p>
         <h1>Form Coach</h1>
         <p className="app-subtitle">
-          Camera on the left. Squat and watch the knee angles change.
+          Squat and watch the state flip between UP and DOWN.
         </p>
       </header>
       <main className="app-main">
