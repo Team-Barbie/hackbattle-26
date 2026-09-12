@@ -3,9 +3,12 @@ import { DrawingUtils, PoseLandmarker } from "@mediapipe/tasks-vision";
 import {
   formatPoseLog,
   getPoseDetector,
+  isVisible,
   type DetectedPose,
+  type LandmarkPoint,
   type PoseDetector,
 } from "../vision/poseDetector";
+import PoseFigure, { drawBodyFigure } from "./PoseFigure";
 
 type CameraStatus = "idle" | "starting" | "live" | "stopped" | "error";
 
@@ -25,10 +28,22 @@ function cameraErrorMessage(error: unknown): string {
   return "Could not start the camera.";
 }
 
+function formatOptionalJoint(label: string, point: LandmarkPoint | null) {
+  if (!isVisible(point)) {
+    return "";
+  }
+
+  return `${label} ${point.x.toFixed(2)}, ${point.y.toFixed(2)}`;
+}
+
+const VISIBLE_LANDMARK = 0.16;
+let overlayUtils: DrawingUtils | null = null;
+
 function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, pose: DetectedPose | null) {
   if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    overlayUtils = null;
   }
 
   const context = canvas.getContext("2d");
@@ -43,21 +58,32 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, pose: Dete
     return;
   }
 
-  const drawingUtils = new DrawingUtils(context);
-  drawingUtils.drawConnectors(pose.landmarks, PoseLandmarker.POSE_CONNECTIONS, {
+  const visibleLandmarks = pose.landmarks.map((landmark) =>
+    (landmark.visibility ?? 0) >= VISIBLE_LANDMARK ? landmark : undefined,
+  );
+  const visibleConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
+    (connection) => visibleLandmarks[connection.start] && visibleLandmarks[connection.end],
+  );
+
+  overlayUtils ??= new DrawingUtils(context);
+  overlayUtils.drawConnectors(pose.landmarks, visibleConnections, {
     color: "#3dd68c",
-    lineWidth: 3,
+    lineWidth: 4,
   });
-  drawingUtils.drawLandmarks(pose.landmarks, {
-    color: "#edf3ef",
-    radius: 4,
-    fillColor: "#3dd68c",
-  });
+  overlayUtils.drawLandmarks(
+    visibleLandmarks.filter((landmark): landmark is NonNullable<typeof landmark> => Boolean(landmark)),
+    {
+      color: "#edf3ef",
+      radius: 5,
+      fillColor: "#3dd68c",
+    },
+  );
 }
 
 export default function CameraView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const figureRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<PoseDetector | null>(null);
   const [status, setStatus] = useState<CameraStatus>("idle");
@@ -65,6 +91,7 @@ export default function CameraView() {
   const [poseError, setPoseError] = useState<string | null>(null);
   const [poseReady, setPoseReady] = useState(false);
   const [pose, setPose] = useState<DetectedPose | null>(null);
+  const [videoAspect, setVideoAspect] = useState("16 / 9");
 
   async function requestStream() {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -72,6 +99,7 @@ export default function CameraView() {
         facingMode: "user",
         width: { ideal: 1280 },
         height: { ideal: 720 },
+        frameRate: { ideal: 60 },
       },
       audio: false,
     });
@@ -91,6 +119,10 @@ export default function CameraView() {
       await new Promise<void>((resolve) => {
         video.onloadeddata = () => resolve();
       });
+    }
+
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      setVideoAspect(`${video.videoWidth} / ${video.videoHeight}`);
     }
   }
 
@@ -206,17 +238,28 @@ export default function CameraView() {
       return;
     }
 
-    let frameId = 0;
+    const video = videoRef.current;
+    let rafId = 0;
+    let videoFrameHandle: number | null = null;
     let lastLoggedAt = 0;
+    let stopped = false;
 
     const detectFrame = () => {
-      const video = videoRef.current;
+      if (stopped) {
+        return;
+      }
+
+      const liveVideo = videoRef.current;
       const canvas = canvasRef.current;
       const detector = detectorRef.current;
 
-      if (video && canvas && detector) {
-        const nextPose = detector.detectPose(video);
-        drawPose(canvas, video, nextPose);
+      if (liveVideo && canvas && detector) {
+        const nextPose = detector.detectPose(liveVideo);
+        drawPose(canvas, liveVideo, nextPose);
+
+        if (figureRef.current) {
+          drawBodyFigure(figureRef.current, nextPose);
+        }
 
         const now = performance.now();
 
@@ -225,24 +268,50 @@ export default function CameraView() {
           setPose(nextPose);
 
           if (nextPose) {
-            console.log("[pose]", formatPoseLog(nextPose), nextPose);
+            console.log("[pose]", formatPoseLog(nextPose));
           }
         }
       }
 
-      frameId = requestAnimationFrame(detectFrame);
+      scheduleNext();
     };
 
-    frameId = requestAnimationFrame(detectFrame);
+    const scheduleNext = () => {
+      if (stopped) {
+        return;
+      }
+
+      const liveVideo = videoRef.current;
+
+      if (liveVideo && "requestVideoFrameCallback" in liveVideo) {
+        videoFrameHandle = liveVideo.requestVideoFrameCallback(() => {
+          detectFrame();
+        });
+        return;
+      }
+
+      rafId = requestAnimationFrame(detectFrame);
+    };
+
+    scheduleNext();
 
     return () => {
-      cancelAnimationFrame(frameId);
+      stopped = true;
+      cancelAnimationFrame(rafId);
+
+      if (video && videoFrameHandle !== null && "cancelVideoFrameCallback" in video) {
+        video.cancelVideoFrameCallback(videoFrameHandle);
+      }
     };
   }, [isLive, poseReady]);
 
   return (
     <section className="camera-card">
-      <div className={`camera-frame${isLive ? " is-live" : ""}`}>
+      <div className="studio">
+      <div
+        className={`camera-frame${isLive ? " is-live" : ""}`}
+        style={{ aspectRatio: videoAspect }}
+      >
         <div className="camera-stage">
           <video
             ref={videoRef}
@@ -267,6 +336,8 @@ export default function CameraView() {
         )}
         <span className="camera-badge">{pose ? "Tracking" : isLive ? "Live" : "Idle"}</span>
       </div>
+      <PoseFigure canvasRef={figureRef} tracking={Boolean(pose)} />
+      </div>
 
       {error && <p className="camera-error">{error}</p>}
       {poseError && <p className="camera-error">{poseError}</p>}
@@ -277,15 +348,19 @@ export default function CameraView() {
             ? "Loading pose model…"
             : pose
               ? "Pose landmarks"
-              : "Stand in frame so the camera can see your full body"}
+              : "Keep shoulders in frame and hit the Dougie — the figure should snap with you"}
         </p>
         {pose && (
           <pre className="pose-log-coords">
-            {`L shoulder ${pose.leftShoulder.x.toFixed(2)}, ${pose.leftShoulder.y.toFixed(2)}
-L hip      ${pose.leftHip.x.toFixed(2)}, ${pose.leftHip.y.toFixed(2)}
-L knee     ${pose.leftKnee.x.toFixed(2)}, ${pose.leftKnee.y.toFixed(2)}
-L ankle    ${pose.leftAnkle.x.toFixed(2)}, ${pose.leftAnkle.y.toFixed(2)}
-R knee     ${pose.rightKnee.x.toFixed(2)}, ${pose.rightKnee.y.toFixed(2)}`}
+            {[
+              `L shoulder ${pose.leftShoulder.x.toFixed(2)}, ${pose.leftShoulder.y.toFixed(2)}`,
+              formatOptionalJoint("L hip     ", pose.leftHip),
+              formatOptionalJoint("L knee    ", pose.leftKnee),
+              formatOptionalJoint("L ankle   ", pose.leftAnkle),
+              formatOptionalJoint("R knee    ", pose.rightKnee),
+            ]
+              .filter(Boolean)
+              .join("\n")}
           </pre>
         )}
       </div>
