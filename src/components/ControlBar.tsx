@@ -1,23 +1,34 @@
-import type { SquatSession } from "../hooks/useSquatSession";
+import type { ExerciseSession } from "../hooks/useExerciseSession";
 
-export default function ControlBar({ session }: { session: SquatSession }) {
+export default function ControlBar({ session }: { session: ExerciseSession }) {
   const { isLive, isBusy } = session;
 
   return (
     <div className="control-bar">
-      <button
-        type="button"
-        onClick={() => void session.startCamera()}
-        disabled={isLive || isBusy}
-      >
+      {session.exerciseId === "custom" &&
+        (session.recordingReference ? (
+          <button type="button" onClick={session.stopReferenceRecording}>
+            Stop and use ({session.referenceFrameCount})
+          </button>
+        ) : (
+          <button type="button" onClick={session.startReferenceRecording} disabled={!isLive}>
+            Record reference
+          </button>
+        ))}
+      {session.exerciseId === "custom" && session.referenceExercise && (
+        <button
+          type="button"
+          className="secondary"
+          onClick={session.clearReference}
+          disabled={session.recordingReference}
+        >
+          Clear reference
+        </button>
+      )}
+      <button type="button" onClick={() => void session.startCamera()} disabled={isLive || isBusy}>
         Start cam
       </button>
-      <button
-        type="button"
-        className="secondary"
-        onClick={session.stopCamera}
-        disabled={!isLive}
-      >
+      <button type="button" className="secondary" onClick={session.stopCamera} disabled={!isLive}>
         End cam
       </button>
       <button
@@ -37,6 +48,9 @@ export default function ControlBar({ session }: { session: SquatSession }) {
         title={session.audioSupported ? undefined : "Speech is not supported in this browser"}
       >
         Voice: {session.audioEnabled ? "on" : "off"}
+      </button>
+      <button type="button" className="secondary" onClick={session.restartPlan}>
+        Restart plan
       </button>
     </div>
   );

@@ -1,40 +1,24 @@
-import type { SquatSession } from "../hooks/useSquatSession";
+import { exerciseName } from "../exercises/exerciseCatalog";
+import type { ExerciseSession } from "../hooks/useExerciseSession";
 
-const MIN_TARGET = 1;
-const MAX_TARGET = 50;
-
-export default function RepCounterPanel({ session }: { session: SquatSession }) {
-  const { reps, targetReps, setTargetReps } = session;
+export default function RepCounterPanel({ session }: { session: ExerciseSession }) {
+  const { reps, targetReps, currentStep, stepIndex, plan, planComplete } = session;
   const remaining = Math.max(0, targetReps - reps);
   const progress = targetReps > 0 ? Math.min(1, reps / targetReps) : 0;
 
   return (
     <section className="panel reps-panel" aria-label="Rep counter">
-      <h2 className="panel-title">Rep counter</h2>
+      <h2 className="panel-title">This exercise</h2>
+      <p className="guide-name">{currentStep ? exerciseName(currentStep.exerciseId) : "·"}</p>
+      <p className="reps-note">
+        {planComplete
+          ? "Plan finished"
+          : `${stepIndex + 1} of ${plan.steps.length} · ${targetReps} prescribed reps`}
+      </p>
 
       <div className="reps-block">
         <p className="reps-label">To do</p>
-        <div className="reps-target">
-          <button
-            type="button"
-            className="step"
-            onClick={() => setTargetReps((value) => Math.max(MIN_TARGET, value - 1))}
-            disabled={targetReps <= MIN_TARGET}
-            aria-label="Lower target reps"
-          >
-            −
-          </button>
-          <span className="reps-value is-muted">{remaining}</span>
-          <button
-            type="button"
-            className="step"
-            onClick={() => setTargetReps((value) => Math.min(MAX_TARGET, value + 1))}
-            disabled={targetReps >= MAX_TARGET}
-            aria-label="Raise target reps"
-          >
-            +
-          </button>
-        </div>
+        <span className="reps-value is-muted">{remaining}</span>
         <p className="reps-note">of {targetReps} target</p>
       </div>
 
@@ -56,7 +40,7 @@ export default function RepCounterPanel({ session }: { session: SquatSession }) 
       </div>
 
       <button type="button" className="secondary block" onClick={session.resetSession}>
-        Reset count
+        Reset this exercise
       </button>
     </section>
   );
