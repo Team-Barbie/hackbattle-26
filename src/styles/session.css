@@ -64,7 +64,7 @@
 }
 
 .session__footer.is-complete {
-  border-color: rgba(59, 91, 219, 0.45);
+  border-color: rgba(243, 243, 241, 0.4);
   background: linear-gradient(160deg, var(--accent-tint), transparent 60%), var(--surface);
 }
 
@@ -99,7 +99,7 @@
 }
 
 .camera.is-live {
-  border-color: rgba(59, 91, 219, 0.55);
+  border-color: rgba(243, 243, 241, 0.5);
 }
 
 .camera.is-tracking {
@@ -259,7 +259,7 @@
   gap: 16px;
   align-items: end;
   padding: 48px 20px 18px;
-  background: linear-gradient(180deg, transparent, rgba(5, 7, 15, 0.88) 60%);
+  background: linear-gradient(180deg, transparent, rgba(6, 6, 6, 0.9) 60%);
   pointer-events: none;
 }
 

@@ -263,9 +263,9 @@ export function drawExerciseDemoFrame(
   const frames = KEYFRAMES[exerciseId];
   const progress = (elapsedMs % frames.cycleMs) / frames.cycleMs;
   const figure = figureAt(frames, progress);
-  const accent = themeColour("--accent", "#3b5bdb");
-  const bone = themeColour("--text", "#eef0f4");
-  const floor = themeColour("--line-strong", "#303c56");
+  const accent = themeColour("--accent", "#f3f3f1");
+  const bone = themeColour("--text", "#f3f3f1");
+  const floor = themeColour("--line-strong", "#3a3a3a");
 
   const toScreen = (point: Point): Point => ({ x: point.x * width, y: point.y * height });
   const lineWidth = Math.max(2.4, Math.min(width, height) * 0.02);

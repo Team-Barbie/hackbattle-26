@@ -70,7 +70,7 @@
   padding: 6px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-pill);
-  background: rgba(15, 20, 32, 0.9);
+  background: rgba(10, 10, 10, 0.92);
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow-float);
   transform: translateX(-50%);
