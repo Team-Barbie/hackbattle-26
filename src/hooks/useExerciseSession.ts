@@ -6,12 +6,22 @@ import {
 } from "../biomechanics/thighElevation";
 import { nextCue, type Cue, type MoveDirection } from "../coaching/cues";
 import { createCycleCounter } from "../exercises/cycleCounter";
-import type { ExerciseId } from "../exercises/exerciseCatalog";
+import { usesUpperBody, type ExerciseId } from "../exercises/exerciseCatalog";
+import {
+  detectBicepCurlState,
+  bicepCurlDegrees,
+  type BicepCurlState,
+} from "../exercises/bicepCurl/bicepCurl";
 import {
   detectKneeRaiseState,
   kneeRaiseElevation,
   type KneeRaiseState,
 } from "../exercises/kneeRaise/kneeRaise";
+import {
+  detectLateralRaiseState,
+  lateralRaiseDegrees,
+  type LateralRaiseState,
+} from "../exercises/lateralRaise/lateralRaise";
 import {
   detectShoulderRaiseState,
   shoulderRaiseAngle,
@@ -26,6 +36,7 @@ import {
 import {
   getPoseDetector,
   hasFullBodyVisible,
+  hasUpperBodyVisible,
   isVisible,
   type DetectedPose,
   type LandmarkPoint,
@@ -34,10 +45,14 @@ import {
 import { drawBodyFigure, drawPoseOverlay } from "../vision/render";
 
 export type CameraStatus = "idle" | "starting" | "live" | "stopped" | "error";
-export type MovementState = SquatState | ShoulderRaiseState | KneeRaiseState;
+export type MovementState =
+  | SquatState
+  | ShoulderRaiseState
+  | KneeRaiseState
+  | LateralRaiseState
+  | BicepCurlState;
 
 const PUBLISH_INTERVAL_MS = 120;
-/** Elevation is a 0-1 ratio, so this is a fraction of thigh length, not degrees. */
 const DIRECTION_DEADBAND = 0.03;
 const DEFAULT_TARGET_REPS = 10;
 const CUE_SPEAK_DELAY_MS = 350;
@@ -93,6 +108,10 @@ function stateLabel(state: MovementState | null): string {
     ARMS_UP: "Arms raised",
     FEET_DOWN: "Feet down",
     KNEE_UP: "Knee raised",
+    LATERAL_DOWN: "Arms down",
+    LATERAL_UP: "Arms out",
+    ARMS_EXTENDED: "Arms long",
+    ARMS_CURLED: "Curled",
   };
 
   return state ? labels[state] : "—";
@@ -102,10 +121,7 @@ function visibleJoint(point: LandmarkPoint | null) {
   return isVisible(point) ? point : null;
 }
 
-function sideReading(
-  hip: LandmarkPoint | null,
-  knee: LandmarkPoint | null,
-): ThighReading {
+function sideReading(hip: LandmarkPoint | null, knee: LandmarkPoint | null): ThighReading {
   return {
     elevation: thighElevation(visibleJoint(hip), visibleJoint(knee)),
     confidence: Math.min(hip?.visibility ?? 0, knee?.visibility ?? 0),
@@ -136,6 +152,8 @@ export function useExerciseSession() {
   const squatCounterRef = useRef(createSquatCounter());
   const shoulderCounterRef = useRef(createCycleCounter());
   const kneeCounterRef = useRef(createCycleCounter());
+  const lateralCounterRef = useRef(createCycleCounter());
+  const curlCounterRef = useRef(createCycleCounter());
   const showSkeletonRef = useRef(true);
   const lastSpokenCueRef = useRef("");
   const lastSpokenRepRef = useRef(0);
@@ -231,6 +249,8 @@ export function useExerciseSession() {
     squatCounterRef.current.reset();
     shoulderCounterRef.current.reset();
     kneeCounterRef.current.reset();
+    lateralCounterRef.current.reset();
+    curlCounterRef.current.reset();
     movementStateRef.current = null;
     ascentLockedRef.current = false;
     setReps(0);
@@ -261,6 +281,10 @@ export function useExerciseSession() {
   }, []);
 
   useEffect(() => stopTracks, [stopTracks]);
+
+  useEffect(() => {
+    void startCamera();
+  }, [startCamera]);
 
   useEffect(() => {
     let cancelled = false;
@@ -331,9 +355,11 @@ export function useExerciseSession() {
         }
 
         const now = performance.now();
-        const fullBodyDetected = hasFullBodyVisible(pose);
+        const personVisible = usesUpperBody(exerciseId)
+          ? hasUpperBodyVisible(pose)
+          : hasFullBodyVisible(pose);
 
-        if (fullBodyDetected) {
+        if (personVisible) {
           lastFullBodyAt = now;
           validBodySince ||= now;
 
@@ -346,8 +372,8 @@ export function useExerciseSession() {
         }
 
         const insideGrace = lastFullBodyAt > 0 && now - lastFullBodyAt <= FULL_BODY_GRACE_MS;
-        const exerciseTracking = bodyReady && (fullBodyDetected || insideGrace);
-        const analysisPose = bodyReady && fullBodyDetected ? pose : null;
+        const exerciseTracking = bodyReady && (personVisible || insideGrace);
+        const analysisPose = bodyReady && personVisible ? pose : null;
         const readings = thighReadingsFromPose(analysisPose);
         let metric: number | null = null;
         let state: MovementState | null = null;
@@ -362,19 +388,33 @@ export function useExerciseSession() {
         } else if (exerciseTracking && exerciseId === "shoulder-raise") {
           metric = shoulderRaiseAngle(analysisPose);
           const previous =
-            movementStateRef.current === "ARMS_DOWN" ||
-            movementStateRef.current === "ARMS_UP"
+            movementStateRef.current === "ARMS_DOWN" || movementStateRef.current === "ARMS_UP"
               ? movementStateRef.current
               : null;
           state = detectShoulderRaiseState(metric, previous);
         } else if (exerciseTracking && exerciseId === "knee-raise") {
           metric = kneeRaiseElevation(readings.left, readings.right);
           const previous =
-            movementStateRef.current === "FEET_DOWN" ||
-            movementStateRef.current === "KNEE_UP"
+            movementStateRef.current === "FEET_DOWN" || movementStateRef.current === "KNEE_UP"
               ? movementStateRef.current
               : null;
           state = detectKneeRaiseState(metric, previous);
+        } else if (exerciseTracking && exerciseId === "lateral-raise") {
+          metric = lateralRaiseDegrees(analysisPose);
+          const previous =
+            movementStateRef.current === "LATERAL_DOWN" ||
+            movementStateRef.current === "LATERAL_UP"
+              ? movementStateRef.current
+              : null;
+          state = detectLateralRaiseState(metric, previous);
+        } else if (exerciseTracking && exerciseId === "bicep-curl") {
+          metric = bicepCurlDegrees(analysisPose);
+          const previous =
+            movementStateRef.current === "ARMS_EXTENDED" ||
+            movementStateRef.current === "ARMS_CURLED"
+              ? movementStateRef.current
+              : null;
+          state = detectBicepCurlState(metric, previous);
         }
 
         if (exerciseTracking) {
@@ -385,6 +425,8 @@ export function useExerciseSession() {
           squatCounterRef.current.cancelCurrentRep();
           shoulderCounterRef.current.cancelCurrentRep();
           kneeCounterRef.current.cancelCurrentRep();
+          lateralCounterRef.current.cancelCurrentRep();
+          curlCounterRef.current.cancelCurrentRep();
         }
 
         let completedRep = false;
@@ -407,6 +449,16 @@ export function useExerciseSession() {
           const phase = state === "FEET_DOWN" ? "REST" : state === "KNEE_UP" ? "ACTIVE" : null;
           completedRep = kneeCounterRef.current.update(phase);
           currentCount = kneeCounterRef.current.count;
+        } else if (exerciseTracking && exerciseId === "lateral-raise") {
+          const phase =
+            state === "LATERAL_DOWN" ? "REST" : state === "LATERAL_UP" ? "ACTIVE" : null;
+          completedRep = lateralCounterRef.current.update(phase);
+          currentCount = lateralCounterRef.current.count;
+        } else if (exerciseTracking && exerciseId === "bicep-curl") {
+          const phase =
+            state === "ARMS_EXTENDED" ? "REST" : state === "ARMS_CURLED" ? "ACTIVE" : null;
+          completedRep = curlCounterRef.current.update(phase);
+          currentCount = curlCounterRef.current.count;
         }
 
         if (completedRep) {
@@ -416,11 +468,7 @@ export function useExerciseSession() {
         if (now - lastPublishedAt >= PUBLISH_INTERVAL_MS) {
           lastPublishedAt = now;
 
-          if (
-            exerciseId === "squat" &&
-            metric !== null &&
-            lastPublishedElevation !== null
-          ) {
+          if (exerciseId === "squat" && metric !== null && lastPublishedElevation !== null) {
             const delta = metric - lastPublishedElevation;
             const measuredDirection: MoveDirection =
               delta < -DIRECTION_DEADBAND
@@ -444,7 +492,7 @@ export function useExerciseSession() {
           }
 
           lastPublishedElevation = exerciseId === "squat" ? metric : null;
-          setTracking(fullBodyDetected);
+          setTracking(personVisible);
           setMovementState(state);
           setMovementMetric(metric);
         }
@@ -498,7 +546,7 @@ export function useExerciseSession() {
       return;
     }
 
-    const cueKey = `${cue.headline}|${cue.detail}`;
+    const cueKey = `${exerciseId}|${cue.headline}|${cue.detail}`;
 
     if (cueKey === lastSpokenCueRef.current) {
       return;
@@ -515,7 +563,7 @@ export function useExerciseSession() {
     }, CUE_SPEAK_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [audioEnabled, cue.detail, cue.headline, cue.tone, isLive]);
+  }, [audioEnabled, cue.detail, cue.headline, cue.tone, exerciseId, isLive]);
 
   useEffect(() => {
     if (reps === 0) {
@@ -540,11 +588,17 @@ export function useExerciseSession() {
   useEffect(() => cancelSpeech, []);
 
   const metricLabel =
-    exerciseId === "shoulder-raise" ? "Shoulder angle" : "Thigh angle";
-  const metricDisplay =
     exerciseId === "shoulder-raise"
-      ? formatDegrees(movementMetric)
-      : formatDegrees(thighAngleDegrees(movementMetric));
+      ? "Shoulder angle"
+      : exerciseId === "lateral-raise"
+        ? "Arm lift"
+        : exerciseId === "bicep-curl"
+          ? "Elbow"
+          : "Thigh angle";
+  const metricDisplay =
+    exerciseId === "squat" || exerciseId === "knee-raise"
+      ? formatDegrees(thighAngleDegrees(movementMetric))
+      : formatDegrees(movementMetric);
 
   return {
     videoRef,

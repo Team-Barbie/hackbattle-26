@@ -1,5 +1,6 @@
 import CameraPanel from "./components/CameraPanel";
 import ControlBar from "./components/ControlBar";
+import ExercisePicker from "./components/ExercisePicker";
 import FeedbackPanel from "./components/FeedbackPanel";
 import GuidePanel from "./components/GuidePanel";
 import RepCounterPanel from "./components/RepCounterPanel";
@@ -13,6 +14,7 @@ export default function App() {
       <header className="app-header">
         <p className="app-eyebrow">HackBattle 26</p>
         <h1>PhysioLoop</h1>
+        <ExercisePicker session={session} />
       </header>
 
       <main className="stage">
