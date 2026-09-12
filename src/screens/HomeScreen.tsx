@@ -1,4 +1,5 @@
-import { squatGuide } from "../coaching/exerciseGuide";
+import { exerciseName } from "../exercises/exerciseCatalog";
+import { DEFAULT_PRESCRIPTION } from "../exercises/prescription";
 import { currentStreak, type PatientProfile } from "../state/patientProfile";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 export default function HomeScreen({ profile, onStartSession }: Props) {
   const streak = currentStreak(profile);
   const firstName = profile.name.split(" ")[0];
+  const plan = DEFAULT_PRESCRIPTION;
 
   return (
     <div className="page">
@@ -19,8 +21,18 @@ export default function HomeScreen({ profile, onStartSession }: Props) {
 
       <section className="panel plan-card">
         <p className="panel-title">Today's plan</p>
-        <p className="plan-name">{squatGuide.name}</p>
-        <p className="plan-detail">1 set · 10 reps</p>
+        <p className="plan-name">{plan.title}</p>
+        <p className="plan-detail">
+          {plan.steps.length} exercise{plan.steps.length === 1 ? "" : "s"} · prescribed by{" "}
+          {plan.therapist}
+        </p>
+        <ol className="guide-steps">
+          {plan.steps.map((step) => (
+            <li key={step.id}>
+              {exerciseName(step.exerciseId)} · {step.targetReps} reps
+            </li>
+          ))}
+        </ol>
         <button type="button" className="block plan-cta" onClick={onStartSession}>
           Start session
         </button>

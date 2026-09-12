@@ -1,13 +1,12 @@
 import { thighAngleDegrees } from "../biomechanics/thighElevation";
-import type { SquatSession } from "../hooks/useSquatSession";
+import type { ExerciseSession } from "../hooks/useExerciseSession";
 
-function formatThigh(elevation: number | null): string {
-  const degrees = thighAngleDegrees(elevation);
-  return degrees === null ? "·" : `${Math.round(degrees)}°`;
+function formatDegrees(value: number | null): string {
+  return value === null ? "·" : `${Math.round(value)}°`;
 }
 
-export default function FeedbackPanel({ session }: { session: SquatSession }) {
-  const { cue, squatState, elevation, lastRepDepth, poseReady, poseError } = session;
+export default function FeedbackPanel({ session }: { session: ExerciseSession }) {
+  const { cue, lastRepDepth, poseReady, poseError } = session;
 
   return (
     <section className="panel feedback-panel" aria-label="Live feedback">
@@ -21,19 +20,29 @@ export default function FeedbackPanel({ session }: { session: SquatSession }) {
       <dl className="readouts">
         <div>
           <dt>State</dt>
-          <dd className={squatState ? `is-${squatState.toLowerCase()}` : ""}>
-            {squatState ?? "·"}
-          </dd>
+          <dd>{session.movementStateLabel}</dd>
         </div>
         <div>
-          <dt>Thigh (0° = parallel)</dt>
-          <dd>{formatThigh(elevation)}</dd>
+          <dt>{session.metricLabel}</dt>
+          <dd>{session.metricDisplay}</dd>
         </div>
-        <div>
-          <dt>Last rep depth</dt>
-          <dd>{formatThigh(lastRepDepth)}</dd>
-        </div>
+        {session.exerciseId === "squat" && (
+          <div>
+            <dt>Last rep depth</dt>
+            <dd>{formatDegrees(thighAngleDegrees(lastRepDepth))}</dd>
+          </div>
+        )}
+        {session.exerciseId === "custom" && session.referenceExercise && (
+          <div>
+            <dt>Reference progress</dt>
+            <dd>{session.referenceProgress}%</dd>
+          </div>
+        )}
       </dl>
+
+      {session.exerciseId === "custom" && session.referenceMessage && (
+        <p className="feedback-note">{session.referenceMessage}</p>
+      )}
 
       {!poseReady && !poseError && (
         <div className="loading-row">

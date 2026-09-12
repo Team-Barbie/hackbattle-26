@@ -10,6 +10,7 @@ import ReadinessScreen from "./screens/ReadinessScreen";
 import RoleSelectScreen, { type Role } from "./screens/RoleSelectScreen";
 import SessionScreen from "./screens/SessionScreen";
 import SessionSummaryScreen from "./screens/SessionSummaryScreen";
+import type { ExerciseId } from "./exercises/exerciseCatalog";
 import {
   clearPatientProfile,
   createPatientProfile,
@@ -45,6 +46,7 @@ export default function App() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [lastResult, setLastResult] = useState<SessionResult | null>(null);
   const [pendingReadiness, setPendingReadiness] = useState<number | null>(null);
+  const [selectedExerciseId, setSelectedExerciseId] = useState<ExerciseId | null>(null);
 
   useEffect(() => {
     const existing = loadPatientProfile();
@@ -113,7 +115,11 @@ export default function App() {
 
   if (screen === "session") {
     return (
-      <SessionScreen onFinish={handleFinishSession} onBack={() => setScreen("home")} />
+      <SessionScreen
+        exerciseId={selectedExerciseId}
+        onFinish={handleFinishSession}
+        onBack={() => setScreen("home")}
+      />
     );
   }
 
@@ -129,15 +135,28 @@ export default function App() {
 
   const activeTab = TAB_SCREENS[screen] ?? "home";
 
-  let page = <HomeScreen profile={profile} onStartSession={() => setScreen("readiness")} />;
+  function goToReadiness(exerciseId: ExerciseId | null) {
+    setSelectedExerciseId(exerciseId);
+    setScreen("readiness");
+  }
+
+  let page = <HomeScreen profile={profile} onStartSession={() => goToReadiness(null)} />;
 
   if (screen === "program") {
-    page = <ProgramScreen onOpenSquat={() => setScreen("exerciseDetail")} />;
-  } else if (screen === "exerciseDetail") {
+    page = (
+      <ProgramScreen
+        onOpenExercise={(id) => {
+          setSelectedExerciseId(id);
+          setScreen("exerciseDetail");
+        }}
+      />
+    );
+  } else if (screen === "exerciseDetail" && selectedExerciseId) {
     page = (
       <ExerciseDetailScreen
+        exerciseId={selectedExerciseId}
         onBack={() => setScreen("program")}
-        onStartSession={() => setScreen("readiness")}
+        onStartSession={() => goToReadiness(selectedExerciseId)}
       />
     );
   } else if (screen === "progress") {
