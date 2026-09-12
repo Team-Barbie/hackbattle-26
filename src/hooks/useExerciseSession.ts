@@ -76,7 +76,7 @@ const DIRECTION_DEADBAND = 0.03;
 const DEFAULT_TARGET_REPS = 10;
 const CUE_SPEAK_DELAY_MS = 350;
 const REP_ANNOUNCEMENT_PRIORITY_MS = 1200;
-const FULL_BODY_GRACE_MS = 280;
+const FULL_BODY_GRACE_MS = 500;
 const BODY_STABILITY_MS = 1400;
 const COUNT_READY_MS = 350;
 const REFERENCE_CAPTURE_INTERVAL_MS = 100;
@@ -571,7 +571,14 @@ export function useExerciseSession() {
           rawMetric = bicepCurlDegrees(analysisPose);
         }
 
-        let metric = exerciseTracking ? metricFilterRef.current.push(rawMetric) : null;
+        // MediaPipe landmarks are already One Euro-smoothed. A second rolling
+        // average made the squat metric lag behind fast direction changes and
+        // could stop a genuine bottom position from crossing the DOWN threshold.
+        let metric = exerciseTracking
+          ? exerciseId === "squat"
+            ? rawMetric
+            : metricFilterRef.current.push(rawMetric)
+          : null;
 
         if (exerciseTracking && exerciseId === "squat") {
           const previous =

@@ -325,7 +325,7 @@ async function createPoseDetector(): Promise<PoseDetector> {
   let lastDetectAt = 0;
   let lastPose: DetectedPose | null = null;
   let missedFrames = 0;
-  const smoother = new LandmarkSmoother(0.55, 0.7);
+  const smoother = new LandmarkSmoother(1.35, 2.4);
 
   const nextTimestamp = () => {
     let timestamp = performance.now();
