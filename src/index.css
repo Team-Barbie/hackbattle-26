@@ -5,28 +5,30 @@
   font-family: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: #0a0a0c;
-  color: #f4f4ef;
+  background: #000;
+  color: #efefef;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 
-  --text: #f4f4ef;
-  --accent: #e2ff3d;
-  --accent-strong: #f2ff00;
-  --accent-soft: #d5f24d;
-  --accent-hover: #eeff7a;
-  --on-accent: #0a0a0c;
-  --hold: #4da8ff;
-  --warn: #ffcf6b;
-  --danger: #ff6b6b;
-  --surface: #141417;
-  --raised: #1c1c20;
-  --raised-hover: #26262b;
-  --track: #1c1c20;
-  --line: #2b2b30;
-  --muted: #8d8d95;
-  --dim: #cfcfd6;
+  --text: #efefef;
+  /* rgb(241,175,53) — the dominant fill in lanatires.com's own CSS (72 occurrences). */
+  --accent: #f1af35;
+  --accent-hover: #fcb504;
+  --accent-glow-light: #ffe3b1;
+  --accent-glow-mid: #b67421;
+  /* Dark text on the gold accent for contrast — a call I made, not a pulled value; see PhysioLoop project memory. */
+  --on-accent: #140d02;
+  --hold: #0099ff;
+  --warn: #b67421;
+  --danger: #eb484d;
+  --surface: #1c1c1e;
+  --raised: #29292c;
+  --raised-hover: #34343a;
+  --track: #1c1c1e;
+  --line: #333336;
+  --muted: #999;
+  --dim: #afafb3;
 }
 
 * {
@@ -43,9 +45,9 @@ body,
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 15% -10%, rgba(226, 255, 61, 0.14), transparent 40%),
-    radial-gradient(circle at 90% 0%, rgba(77, 168, 255, 0.1), transparent 45%),
-    #0a0a0c;
+    radial-gradient(ellipse at 50% 115%, rgba(182, 116, 33, 0.35), transparent 55%),
+    radial-gradient(circle at 50% 100%, rgba(255, 227, 177, 0.12), transparent 40%),
+    #000;
 }
 
 .app {
@@ -60,7 +62,7 @@ body {
 
 .app-eyebrow {
   margin: 0 0 6px;
-  color: var(--accent-soft);
+  color: var(--accent);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -145,7 +147,7 @@ body {
 
 .camera-frame.is-live {
   border-color: var(--accent);
-  box-shadow: 0 20px 60px -10px rgba(226, 255, 61, 0.25);
+  box-shadow: 0 20px 60px -10px rgba(241, 175, 53, 0.25);
 }
 
 .camera-stage {
@@ -303,7 +305,7 @@ body {
 
 .guide-summary {
   margin: 0;
-  color: var(--accent-soft);
+  color: var(--accent);
   font-size: 0.85rem;
 }
 
@@ -544,7 +546,7 @@ button.step:hover:not(:disabled) {
   background: var(--surface);
   border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 16px 40px -12px rgba(226, 255, 61, 0.28);
+  box-shadow: 0 16px 40px -12px rgba(241, 175, 53, 0.28);
 }
 
 .role-card:disabled {
