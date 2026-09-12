@@ -29,7 +29,7 @@ body {
 }
 
 .app {
-  width: min(920px, calc(100% - 32px));
+  width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
   padding: 40px 0 56px;
 }
@@ -63,6 +63,61 @@ body {
   gap: 16px;
 }
 
+.studio {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.figure-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.figure-frame {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 420px;
+  aspect-ratio: 3 / 4;
+  border: 1px solid #2a3830;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(61, 214, 140, 0.08), transparent 42%),
+    #111815;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+}
+
+.figure-frame.is-live {
+  border-color: #3dd68c;
+}
+
+.figure-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.figure-caption {
+  margin: 0;
+  color: #93a399;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 800px) {
+  .studio {
+    grid-template-columns: 1fr;
+  }
+
+  .figure-frame {
+    min-height: 320px;
+    aspect-ratio: 3 / 4;
+  }
+}
+
 .camera-frame {
   position: relative;
   overflow: hidden;
@@ -90,7 +145,7 @@ body {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: fill;
   background: transparent;
 }
 
