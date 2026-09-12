@@ -1,96 +1,34 @@
-import Icon from "../components/Icon";
-import { exerciseArea, exerciseFraming } from "../content/exerciseMeta";
-import { exerciseGuides } from "../coaching/exerciseGuide";
 import { EXERCISES, type ExerciseId } from "../exercises/exerciseCatalog";
-import type { Prescription } from "../exercises/prescription";
-import { totalPrescribedReps } from "../state/prescriptionStore";
-import { loadReferenceExercise } from "../exercises/custom/referenceExercise";
+import { exerciseGuides } from "../coaching/exerciseGuide";
 
 type Props = {
-  plan: Prescription;
-  onOpenExercise: (exerciseId: ExerciseId) => void;
-  onStartSession: () => void;
+  onOpenExercise: (id: ExerciseId) => void;
 };
 
-export default function ProgramScreen({ plan, onOpenExercise, onStartSession }: Props) {
-  const recordedExercise = loadReferenceExercise();
-  const prescribed = new Set(plan.steps.map((step) => step.exerciseId));
-  const visibleExercises = EXERCISES.filter(
-    (exercise) => exercise.id !== "custom" || recordedExercise,
-  );
-  const library = visibleExercises.filter((exercise) => !prescribed.has(exercise.id));
-  const displayName = (exerciseId: ExerciseId) =>
-    exerciseId === "custom" && recordedExercise
-      ? recordedExercise.name
-      : exerciseGuides[exerciseId].name;
-
+export default function ProgramScreen({ onOpenExercise }: Props) {
   return (
-    <div className="screen page">
-      <header className="page__header">
-        <h1>Program</h1>
-        <p className="label">
-          {plan.title} · {plan.therapist}
-        </p>
+    <div className="page">
+      <header className="page-header">
+        <p className="app-eyebrow">Program</p>
+        <h1>Your exercises</h1>
       </header>
 
-      <section className="card" aria-label="Prescribed exercises">
-        <h2 className="section-title">
-          Prescribed
-          <small>
-            {plan.steps.length} exercises · {totalPrescribedReps(plan)} reps
-          </small>
-        </h2>
-        <ol className="list">
-          {plan.steps.map((step, index) => (
-            <li key={step.id}>
-              <button
-                type="button"
-                className="row row--indexed"
-                onClick={() => onOpenExercise(step.exerciseId)}
-              >
-                <span className="row__index">{index + 1}</span>
-                <span>
-                  <span className="row__title">{displayName(step.exerciseId)}</span>
-                  <span className="row__sub" style={{ display: "block" }}>
-                    {step.targetReps} reps · {exerciseArea(step.exerciseId)} ·{" "}
-                    {exerciseFraming(step.exerciseId).toLowerCase()}
-                  </span>
-                </span>
-                <Icon name="forward" className="row__chevron" />
-              </button>
-            </li>
-          ))}
-        </ol>
-        <button type="button" className="btn btn--block btn--lg" onClick={onStartSession}>
-          <Icon name="play" solid width={16} height={16} />
-          Start session
-        </button>
-      </section>
-
-      {library.length > 0 && (
-        <section className="card" aria-label="Other exercises">
-          <h2 className="section-title">
-            Other exercises <small>not in your plan</small>
-          </h2>
-          <ul className="list">
-            {library.map((exercise) => (
-              <li key={exercise.id}>
-                <button type="button" className="row" onClick={() => onOpenExercise(exercise.id)}>
-                  <span>
-                    <span className="row__title">{displayName(exercise.id)}</span>
-                    <span className="row__sub" style={{ display: "block" }}>
-                      {exercise.id === "custom" && recordedExercise
-                        ? "Practise against the movement published by your therapist."
-                        : exerciseGuides[exercise.id].summary}
-                    </span>
-                  </span>
-                  <Icon name="forward" className="row__chevron" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <ul className="exercise-list">
+        {EXERCISES.map((exercise) => (
+          <li key={exercise.id}>
+            <button
+              type="button"
+              className="exercise-tile"
+              onClick={() => onOpenExercise(exercise.id)}
+            >
+              <span className="exercise-tile-name">{exercise.name}</span>
+              <span className="exercise-tile-detail">
+                {exerciseGuides[exercise.id].summary}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

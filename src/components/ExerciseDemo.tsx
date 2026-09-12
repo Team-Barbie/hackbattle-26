@@ -1,13 +1,7 @@
 import { useEffect, useRef } from "react";
-import type { ExerciseId } from "../exercises/exerciseCatalog";
-import { drawExerciseDemoFrame } from "../vision/exerciseDemoLoop";
+import { drawSquatDemoFrame } from "../vision/squatDemoLoop";
 
-type Props = {
-  exerciseId: ExerciseId;
-  label?: string;
-};
-
-export default function ExerciseDemo({ exerciseId, label }: Props) {
+export default function ExerciseDemo() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -21,23 +15,18 @@ export default function ExerciseDemo({ exerciseId, label }: Props) {
     const start = performance.now();
 
     const tick = (now: number) => {
-      drawExerciseDemoFrame(canvas, exerciseId, now - start);
+      drawSquatDemoFrame(canvas, now - start);
       frameHandle = requestAnimationFrame(tick);
     };
 
     frameHandle = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(frameHandle);
-  }, [exerciseId]);
+  }, []);
 
   return (
-    <figure className="demo">
-      <canvas
-        ref={canvasRef}
-        className="demo__canvas"
-        aria-label="Looping demonstration of the exercise"
-      />
-      {label && <figcaption className="demo__label">{label} view</figcaption>}
-    </figure>
+    <div className="demo-frame">
+      <canvas ref={canvasRef} className="demo-canvas" aria-label="Looping demonstration of the exercise" />
+    </div>
   );
 }

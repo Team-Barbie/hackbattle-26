@@ -1,84 +1,43 @@
 import ExerciseDemo from "../components/ExerciseDemo";
-import Icon from "../components/Icon";
-import { exerciseArea, exerciseFraming } from "../content/exerciseMeta";
 import { exerciseGuides } from "../coaching/exerciseGuide";
 import type { ExerciseId } from "../exercises/exerciseCatalog";
-import { loadReferenceExercise } from "../exercises/custom/referenceExercise";
-import type { Prescription } from "../exercises/prescription";
 
 type Props = {
   exerciseId: ExerciseId;
-  plan: Prescription;
   onBack: () => void;
   onStartSession: () => void;
-  onPractice: (exerciseId: ExerciseId) => void;
 };
 
-export default function ExerciseDetailScreen({
-  exerciseId,
-  plan,
-  onBack,
-  onStartSession,
-  onPractice,
-}: Props) {
+export default function ExerciseDetailScreen({ exerciseId, onBack, onStartSession }: Props) {
   const guide = exerciseGuides[exerciseId];
-  const recordedExercise = exerciseId === "custom" ? loadReferenceExercise() : null;
-  const step = plan.steps.find((item) => item.exerciseId === exerciseId);
-  const position = step ? plan.steps.indexOf(step) + 1 : null;
 
   return (
-    <div className="screen page">
-      <div className="screen__top">
-        <button type="button" className="back-link" onClick={onBack}>
-          <Icon name="back" />
-          Program
-        </button>
-      </div>
+    <div className="page">
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Program
+      </button>
 
-      <header className="page__header">
-        <h1>{recordedExercise?.name ?? guide.name}</h1>
-        <p className="label">
-          {position ? `Exercise ${position} of ${plan.steps.length} · ${step?.targetReps} reps` : "Not in your plan"}
-          {" · "}
-          {exerciseArea(exerciseId)} · {exerciseFraming(exerciseId).toLowerCase()}
-        </p>
-        <p className="lede">
-          {recordedExercise
-            ? "Practise against the movement published by your therapist."
-            : guide.summary}
-        </p>
+      <header className="page-header">
+        <p className="app-eyebrow">Exercise</p>
+        <h1>{guide.name}</h1>
+        <p className="auth-subtitle">{guide.summary}</p>
       </header>
 
-      <ExerciseDemo exerciseId={exerciseId} label={exerciseFraming(exerciseId)} />
+      {exerciseId === "squat" && <ExerciseDemo />}
 
-      <section className="card">
-        <h2 className="section-title">How to do it</h2>
+      <section className="panel">
+        <p className="panel-title">How to do it</p>
         <ol className="guide-steps">
-          {(recordedExercise
-            ? [
-                "Move into the recorded starting position and wait for a match.",
-                "Perform the complete movement slowly and under control.",
-                "Return to the starting position before beginning the next repetition.",
-              ]
-            : guide.steps
-          ).map((line) => (
-            <li key={line}>{line}</li>
+          {guide.steps.map((step) => (
+            <li key={step}>{step}</li>
           ))}
         </ol>
-        <p className="tip">
-          <strong>Camera:</strong> {guide.cameraTip}
-        </p>
+        <p className="guide-tip">{guide.cameraTip}</p>
       </section>
 
-      <div className="detail-actions">
-        <button type="button" className="btn btn--ghost btn--lg" onClick={() => onPractice(exerciseId)}>
-          Practice this only
-        </button>
-        <button type="button" className="btn btn--lg" onClick={onStartSession}>
-          <Icon name="play" solid width={16} height={16} />
-          Start session
-        </button>
-      </div>
+      <button type="button" className="block" onClick={onStartSession}>
+        Start session
+      </button>
     </div>
   );
 }
