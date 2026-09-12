@@ -2,6 +2,8 @@ export type SessionRecord = {
   date: string;
   reps: number;
   target: number;
+  /** 0-4 readiness pick from the pre-session check-in, or null if skipped. */
+  readiness: number | null;
 };
 
 export type PatientProfile = {
@@ -9,6 +11,8 @@ export type PatientProfile = {
   createdAt: string;
   sessions: SessionRecord[];
 };
+
+export const READINESS_LABELS = ["Rough", "Sore", "Okay", "Good", "Great"];
 
 const STORAGE_KEY = "physioloop.patient";
 
