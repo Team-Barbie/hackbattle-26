@@ -12,7 +12,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <p className="app-eyebrow">HackBattle 26</p>
-        <h1>Form Coach</h1>
+        <h1>PhysioLoop</h1>
       </header>
 
       <main className="stage">

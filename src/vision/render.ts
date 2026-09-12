@@ -1,8 +1,8 @@
 import { DrawingUtils, PoseLandmarker } from "@mediapipe/tasks-vision";
 import type { DetectedPose } from "./poseDetector";
 
-const ACCENT = "#3dd68c";
-const BONE = "#edf3ef";
+const ACCENT = "#7c6cf6";
+const BONE = "#ececf4";
 const VISIBLE_LANDMARK = 0.16;
 
 const NOSE = 0;
