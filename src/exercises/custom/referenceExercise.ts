@@ -19,6 +19,28 @@ export type ReferenceMatch = {
   score: number;
 };
 
+export function parseReferenceExercise(value: unknown): ReferenceExercise | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<ReferenceExercise>;
+  const name = typeof candidate.name === "string" ? candidate.name.trim().slice(0, 60) : "";
+
+  if (
+    candidate.version !== 1 ||
+    !name ||
+    typeof candidate.recordedAt !== "string" ||
+    !Number.isFinite(candidate.durationMs) ||
+    !Array.isArray(candidate.frames) ||
+    candidate.frames.length === 0
+  ) {
+    return null;
+  }
+
+  return { ...candidate, name } as ReferenceExercise;
+}
+
 function jointAngle(
   a: LandmarkPoint | null,
   b: LandmarkPoint | null,
@@ -113,11 +135,7 @@ export function loadReferenceExercise(): ReferenceExercise | null {
       return null;
     }
 
-    const parsed = JSON.parse(raw) as Partial<ReferenceExercise>;
-
-    return parsed.version === 1 && Array.isArray(parsed.frames) && parsed.frames.length > 0
-      ? (parsed as ReferenceExercise)
-      : null;
+    return parseReferenceExercise(JSON.parse(raw));
   } catch {
     return null;
   }

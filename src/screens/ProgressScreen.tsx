@@ -100,7 +100,8 @@ export default function ProgressScreen({ profile }: Props) {
                         key={`${session.id}-${index}`}
                         className={step.reps >= step.targetReps ? "is-complete" : undefined}
                       >
-                        {shortExerciseName(step.exerciseId)} {step.reps}/{step.targetReps}
+                        {step.exerciseName ?? shortExerciseName(step.exerciseId)} {step.reps}/
+                        {step.targetReps}
                         {step.mainIssue ? ` · ${issueLabel(step.mainIssue)}` : ""}
                       </span>
                     ))}

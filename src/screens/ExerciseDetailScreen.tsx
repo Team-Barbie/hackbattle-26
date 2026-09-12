@@ -3,7 +3,7 @@ import Icon from "../components/Icon";
 import { exerciseArea, exerciseFraming } from "../content/exerciseMeta";
 import { exerciseGuides } from "../coaching/exerciseGuide";
 import type { ExerciseId } from "../exercises/exerciseCatalog";
-import type { Prescription } from "../exercises/prescription";
+import { planStepName, type Prescription } from "../exercises/prescription";
 
 type Props = {
   exerciseId: ExerciseId;
@@ -41,7 +41,7 @@ export default function ExerciseDetailScreen({
         <p className="eyebrow">
           {position ? `Exercise ${position} of ${plan.steps.length}` : "From the library"}
         </p>
-        <h1>{guide.name}</h1>
+        <h1>{step ? planStepName(step) : guide.name}</h1>
         <p className="lede">{guide.summary}</p>
       </header>
 

@@ -1,5 +1,5 @@
 import { exerciseArea, exerciseFraming } from "../../content/exerciseMeta";
-import { exerciseName } from "../../exercises/exerciseCatalog";
+import { planStepName } from "../../exercises/prescription";
 import type { ExerciseSession } from "../../hooks/useExerciseSession";
 import ProgressRing from "../ProgressRing";
 
@@ -24,7 +24,9 @@ export default function RepDial({ session }: { session: ExerciseSession }) {
           <span className="eyebrow eyebrow--muted">
             {planComplete ? "Plan finished" : `Exercise ${stepIndex + 1} of ${plan.steps.length}`}
           </span>
-          <p className="rep-dial__name">{exerciseName(exerciseId)}</p>
+          <p className="rep-dial__name">
+            {session.currentStep ? planStepName(session.currentStep) : exerciseId}
+          </p>
           <p className="rep-dial__sub">
             {exerciseArea(exerciseId)} · {exerciseFraming(exerciseId)}
           </p>

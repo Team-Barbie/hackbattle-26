@@ -1,4 +1,5 @@
 import { isExerciseId } from "../exercises/exerciseCatalog";
+import { parseReferenceExercise } from "../exercises/custom/referenceExercise";
 import {
   DEFAULT_PRESCRIPTION,
   clonePrescription,
@@ -41,11 +42,19 @@ function sanitiseSteps(steps: unknown): PlanStep[] {
 
     const reps = Number((step as PlanStep).targetReps);
 
+    const exerciseId = (step as PlanStep).exerciseId;
+    const referenceExercise = parseReferenceExercise((step as PlanStep).referenceExercise);
+
+    if (exerciseId === "custom" && !referenceExercise) {
+      return [];
+    }
+
     return [
       {
         id: typeof (step as PlanStep).id === "string" ? (step as PlanStep).id : `step-${index}`,
-        exerciseId: (step as PlanStep).exerciseId,
+        exerciseId,
         targetReps: Number.isFinite(reps) ? Math.min(50, Math.max(1, Math.round(reps))) : 8,
+        ...(referenceExercise ? { referenceExercise } : {}),
       },
     ];
   });

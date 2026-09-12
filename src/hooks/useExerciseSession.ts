@@ -10,7 +10,7 @@ import { analyzeCompletedRep } from "../exercises/formAnalysis";
 import type { FormIssue, FormIssueType } from "../exercises/formIssues";
 import { mostCommonIssue, rankIssues } from "../coaching/issueRanking";
 import { createMotionCounter } from "../exercises/motionCounter";
-import { exerciseName, usesUpperBody } from "../exercises/exerciseCatalog";
+import { usesUpperBody } from "../exercises/exerciseCatalog";
 import {
   clearReferenceExercise,
   findReferenceMatch,
@@ -22,6 +22,7 @@ import {
 } from "../exercises/custom/referenceExercise";
 import {
   DEFAULT_PRESCRIPTION,
+  planStepName,
   type Prescription,
 } from "../exercises/prescription";
 import {
@@ -226,9 +227,10 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   );
   const [stepIndex, setStepIndex] = useState(0);
   const [referenceExercise, setReferenceExercise] = useState<ReferenceExercise | null>(() =>
-    loadReferenceExercise(),
+    options.plan?.steps[0]?.referenceExercise ?? loadReferenceExercise(),
   );
   const referenceExerciseRef = useRef(referenceExercise);
+  const [pendingReference, setPendingReference] = useState<ReferenceExercise | null>(null);
   const [recordingReference, setRecordingReference] = useState(false);
   const [referenceFrameCount, setReferenceFrameCount] = useState(0);
   const [referenceProgress, setReferenceProgress] = useState(0);
@@ -253,6 +255,16 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   const planComplete = stepComplete && isLastStep;
   const nextStep = !isLastStep ? plan.steps[stepIndex + 1] : undefined;
   const isLive = status === "live";
+
+  useEffect(() => {
+    if (currentStep?.exerciseId !== "custom") {
+      return;
+    }
+
+    const reference = currentStep.referenceExercise ?? loadReferenceExercise();
+    referenceExerciseRef.current = reference;
+    setReferenceExercise(reference);
+  }, [currentStep]);
 
   const stopTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -359,6 +371,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     setReferenceFrameCount(0);
     setReferenceProgress(0);
     setReferenceMessage(null);
+    setPendingReference(null);
   }, []);
 
   const toggleSkeleton = useCallback(() => {
@@ -400,7 +413,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     if (audioEnabled) {
       const upcoming = plan.steps[stepIndex + 1];
       if (upcoming) {
-        speak(`Skipping. Next. ${exerciseName(upcoming.exerciseId)}.`);
+        speak(`Skipping. Next. ${planStepName(upcoming)}.`);
       }
     }
   }, [audioEnabled, isLastStep, plan.steps, resetSession, stepIndex]);
@@ -415,6 +428,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     lastReferenceCaptureAtRef.current = 0;
     recordingReferenceRef.current = true;
     setRecordingReference(true);
+    setPendingReference(null);
     setReferenceMessage("Recording one complete repetition…");
     movementStateRef.current = "RECORDING";
     setMovementState("RECORDING");
@@ -434,32 +448,56 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
 
     const reference: ReferenceExercise = {
       version: 1,
-      name: "Custom recorded exercise",
+      name: "",
       recordedAt: new Date().toISOString(),
       durationMs: (frames.length - 1) * REFERENCE_CAPTURE_INTERVAL_MS,
       frames: frames.map((frame) => [...frame]),
     };
 
+    setPendingReference(reference);
+    setReferenceMessage("Recording ready. Give this exercise a name to save it.");
+    setMovementState("ADJUST");
+  }, []);
+
+  const savePendingReference = useCallback((name: string): ReferenceExercise | null => {
+    const cleanName = name.trim().slice(0, 60);
+
+    if (!pendingReference || !cleanName) {
+      setReferenceMessage("Enter an exercise name before saving.");
+      return null;
+    }
+
+    const reference = { ...pendingReference, name: cleanName };
+
     try {
       saveReferenceExercise(reference);
       referenceExerciseRef.current = reference;
       setReferenceExercise(reference);
+      setPendingReference(null);
+      setPlan((current) => ({
+        ...current,
+        steps: current.steps.map((step, index) =>
+          index === stepIndex && step.exerciseId === "custom"
+            ? { ...step, referenceExercise: reference }
+            : step,
+        ),
+      }));
       referenceProgressRef.current = 0;
       awaitingReferenceRestartRef.current = false;
       setReferenceProgress(0);
-      setReferenceMessage(
-        `Reference saved: ${(reference.durationMs / 1000).toFixed(1)} seconds. Repeat it now.`,
-      );
-      setMovementState("ADJUST");
+      setReferenceMessage(`${cleanName} saved and ready to prescribe.`);
+      return reference;
     } catch {
       setReferenceMessage("The reference could not be saved in this browser.");
+      return null;
     }
-  }, []);
+  }, [pendingReference, stepIndex]);
 
   const clearReference = useCallback(() => {
     clearReferenceExercise();
     referenceExerciseRef.current = null;
     setReferenceExercise(null);
+    setPendingReference(null);
     recordedFramesRef.current = [];
     referenceProgressRef.current = 0;
     awaitingReferenceRestartRef.current = false;
@@ -898,7 +936,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     direction,
     repsDone: reps,
     repsTarget: targetReps,
-    nextExerciseName: nextStep ? exerciseName(nextStep.exerciseId) : null,
+    nextExerciseName: nextStep ? planStepName(nextStep) : null,
     sessionComplete: planComplete,
     primaryIssue: lastIssue,
   });
@@ -969,7 +1007,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
       if (audioEnabled) {
         const upcoming = plan.steps[stepIndex + 1];
         if (upcoming) {
-          speak(`Next. ${exerciseName(upcoming.exerciseId)}.`);
+          speak(`Next. ${planStepName(upcoming)}.`);
         }
       }
     }, 1600);
@@ -1020,12 +1058,14 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     restartPlan,
     skipStep,
     referenceExercise,
+    pendingReference,
     recordingReference,
     referenceFrameCount,
     referenceProgress,
     referenceMessage,
     startReferenceRecording,
     stopReferenceRecording,
+    savePendingReference,
     clearReference,
     tracking,
     movementState,

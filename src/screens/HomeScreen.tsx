@@ -2,8 +2,7 @@ import Brand from "../components/Brand";
 import Icon from "../components/Icon";
 import ProgressRing from "../components/ProgressRing";
 import { formatDay, formatDuration, shortExerciseName } from "../content/exerciseMeta";
-import type { Prescription } from "../exercises/prescription";
-import { exerciseName } from "../exercises/exerciseCatalog";
+import { planStepName, type Prescription } from "../exercises/prescription";
 import {
   currentStreak,
   lastSession,
@@ -89,7 +88,7 @@ export default function HomeScreen({
             <li key={step.id} className="plan-step">
               <span className="index-bubble">{index + 1}</span>
               <div>
-                <p className="plan-step__name">{exerciseName(step.exerciseId)}</p>
+                <p className="plan-step__name">{planStepName(step)}</p>
               </div>
               <span className="plan-step__reps">×{step.targetReps}</span>
             </li>
@@ -136,7 +135,9 @@ export default function HomeScreen({
               </p>
               <p className="last-session__meta">
                 {formatDay(latest.date)} · {formatDuration(latest.durationMs)} ·{" "}
-                {latest.steps.map((step) => shortExerciseName(step.exerciseId)).join(", ")}
+                {latest.steps
+                  .map((step) => step.exerciseName ?? shortExerciseName(step.exerciseId))
+                  .join(", ")}
               </p>
             </div>
             <span className="chip chip--outline">Last</span>

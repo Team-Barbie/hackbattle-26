@@ -5,6 +5,7 @@ import { localDay } from "./dates";
 
 export type StepResult = {
   exerciseId: ExerciseId;
+  exerciseName?: string;
   targetReps: number;
   reps: number;
   goodReps: number;
@@ -46,6 +47,10 @@ function sanitiseStep(step: Partial<StepResult> | undefined): StepResult | null 
 
   return {
     exerciseId: step.exerciseId,
+    exerciseName:
+      typeof step.exerciseName === "string" && step.exerciseName.trim()
+        ? step.exerciseName.trim().slice(0, 60)
+        : undefined,
     targetReps: Number.isFinite(target) ? target : 0,
     reps: Number.isFinite(reps) ? reps : 0,
     goodReps: Number.isFinite(good) ? good : Number.isFinite(reps) ? reps : 0,

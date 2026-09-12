@@ -66,7 +66,7 @@ export default function SessionSummaryScreen({ record, onDone, onViewProgress }:
                   {complete ? <Icon name="check" width={14} height={14} /> : index + 1}
                 </span>
                 <span>
-                  <span className="row__title">{exerciseName(step.exerciseId)}</span>
+                  <span className="row__title">{step.exerciseName ?? exerciseName(step.exerciseId)}</span>
                   {step.mainIssue && (
                     <span className="row__sub" style={{ display: "block" }}>
                       {issueLabel(step.mainIssue)}

@@ -6,6 +6,7 @@ import RepDial from "../components/session/RepDial";
 import SessionControls from "../components/session/SessionControls";
 import StepRail from "../components/session/StepRail";
 import type { Prescription } from "../exercises/prescription";
+import type { ReferenceExercise } from "../exercises/custom/referenceExercise";
 import { useExerciseSession } from "../hooks/useExerciseSession";
 import type { StepResult } from "../state/patientProfile";
 
@@ -18,11 +19,19 @@ type Props = {
   plan: Prescription;
   onFinish: (outcome: SessionOutcome) => void;
   onExit: () => void;
+  referenceAuthoring?: boolean;
+  onReferenceSaved?: (reference: ReferenceExercise) => void;
 };
 
 type BankedStep = StepResult;
 
-export default function SessionScreen({ plan, onFinish, onExit }: Props) {
+export default function SessionScreen({
+  plan,
+  onFinish,
+  onExit,
+  referenceAuthoring = false,
+  onReferenceSaved,
+}: Props) {
   const session = useExerciseSession({ plan });
   const startedAtRef = useRef(performance.now());
   const [repsByStep, setRepsByStep] = useState<BankedStep[]>([]);
@@ -32,6 +41,7 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
     setRepsByStep((current) => {
       const nextEntry: BankedStep = {
         exerciseId: session.exerciseId,
+        exerciseName: session.currentStep?.referenceExercise?.name,
         targetReps: session.targetReps,
         reps: session.reps,
         goodReps: session.goodReps,
@@ -77,6 +87,7 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
 
         return {
           exerciseId: step.exerciseId,
+          exerciseName: step.referenceExercise?.name,
           targetReps: step.targetReps,
           reps,
           goodReps: Math.min(reps, banked?.goodReps ?? 0),
@@ -98,6 +109,11 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
   }
 
   function handleExit() {
+    if (referenceAuthoring) {
+      leaveWithoutSaving();
+      return;
+    }
+
     if (hasProgress) {
       setLeavePrompt(true);
       return;
@@ -143,12 +159,31 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
           <RepDial session={session} />
           <StepRail session={session} repsByStep={repsByStep.map((step) => step?.reps ?? 0)} />
           <Readouts session={session} />
-          <SessionControls session={session} onRestartPlan={handleRestart} className="card--span" />
+          <SessionControls
+            session={session}
+            onRestartPlan={handleRestart}
+            className="card--span"
+            allowReferenceAuthoring={referenceAuthoring}
+            onReferenceSaved={(reference) => {
+              session.stopCamera();
+              onReferenceSaved?.(reference);
+            }}
+          />
         </aside>
       </div>
 
       <footer className="session__footer">
-        {leavePrompt ? (
+        {referenceAuthoring ? (
+          <>
+            <div className="session__footer-copy">
+              <strong>Therapist exercise studio</strong>
+              <span>Record one full repetition, stop, then name it to add it to the plan picker.</span>
+            </div>
+            <button type="button" className="btn btn--ghost" onClick={handleExit}>
+              Back to plan
+            </button>
+          </>
+        ) : leavePrompt ? (
           <>
             <div className="session__footer-copy">
               <strong>Leave this session?</strong>

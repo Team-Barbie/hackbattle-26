@@ -217,8 +217,8 @@ export function nextCue({
 
     if (state === "NO_REFERENCE") {
       return {
-        headline: "Record a reference",
-        detail: "Use the recording control below, then perform one complete repetition.",
+        headline: "Reference required",
+        detail: "A therapist must record and name this movement before it can be practised.",
         tone: "wait",
       };
     }
