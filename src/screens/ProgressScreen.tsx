@@ -34,18 +34,18 @@ export default function ProgressScreen({ profile }: Props) {
         <h1>Progress</h1>
       </header>
 
-      <div className="stats">
-        <div>
-          <span className="stats__value">{streak}</span>
-          <span className="stats__label">Day streak</span>
+      <div className="stat-grid">
+        <div className="stat">
+          <span className={`stat__value${streak > 0 ? " is-accent" : ""}`}>{streak}</span>
+          <span className="stat__label">Day streak</span>
         </div>
-        <div>
-          <span className="stats__value">{totalReps(profile)}</span>
-          <span className="stats__label">Total reps</span>
+        <div className="stat">
+          <span className="stat__value">{totalReps(profile)}</span>
+          <span className="stat__label">Total reps</span>
         </div>
-        <div>
-          <span className="stats__value">{Math.round(averageCompletion * 100)}%</span>
-          <span className="stats__label">Avg. completion</span>
+        <div className="stat">
+          <span className="stat__value">{Math.round(averageCompletion * 100)}%</span>
+          <span className="stat__label">Avg. completion</span>
         </div>
       </div>
 
