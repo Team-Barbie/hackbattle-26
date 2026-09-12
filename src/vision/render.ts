@@ -2,7 +2,7 @@ import { PoseLandmarker } from "@mediapipe/tasks-vision";
 import { landmarkVisibility } from "./landmarks";
 import type { DetectedPose } from "./poseDetector";
 
-const ACCENT = "#f1af35";
+const ACCENT = "#a855f7";
 const BONE = "#efefef";
 
 function drawable(point: { x: number; y: number } | undefined): point is { x: number; y: number } {
