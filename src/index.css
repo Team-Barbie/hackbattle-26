@@ -119,6 +119,28 @@ body {
   color: #ffb4b4;
 }
 
+.pose-log {
+  padding: 14px 16px;
+  border: 1px solid #2a3830;
+  border-radius: 16px;
+  background: #111815;
+}
+
+.pose-log-title {
+  margin: 0;
+  color: #b7c4bb;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pose-log-coords {
+  margin: 10px 0 0;
+  color: #edf3ef;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 .camera-controls {
   display: flex;
   flex-wrap: wrap;
