@@ -1,4 +1,4 @@
-import type { SquatState } from "../exercises/squat/squatState";
+import type { ExerciseId } from "../exercises/exerciseCatalog";
 
 export type MoveDirection = "descending" | "ascending" | "still";
 
@@ -11,8 +11,9 @@ export type Cue = {
 };
 
 export type CueInput = {
+  exerciseId: ExerciseId;
   tracking: boolean;
-  state: SquatState | null;
+  state: string | null;
   direction: MoveDirection;
   repsDone: number;
   repsTarget: number;
@@ -23,6 +24,7 @@ export type CueInput = {
  * about it. Nothing here reads landmarks, and nothing upstream writes copy.
  */
 export function nextCue({
+  exerciseId,
   tracking,
   state,
   direction,
@@ -43,6 +45,50 @@ export function nextCue({
       detail: `That's ${repsDone} reps. Shake it out, or raise the target for another set.`,
       tone: "wait",
     };
+  }
+
+  if (exerciseId === "shoulder-raise") {
+    if (state === "ARMS_UP") {
+      return {
+        headline: "Lower with control",
+        detail: "Bring both arms smoothly back to your sides to finish the rep.",
+        tone: "down",
+      };
+    }
+
+    return state === "ARMS_DOWN"
+      ? {
+          headline: "Raise your arms",
+          detail: "Lift both arms overhead without shrugging your shoulders.",
+          tone: "up",
+        }
+      : {
+          headline: "Arms by your sides",
+          detail: "Stand tall with both hands visible before you begin.",
+          tone: "wait",
+        };
+  }
+
+  if (exerciseId === "knee-raise") {
+    if (state === "KNEE_UP") {
+      return {
+        headline: "Lower with control",
+        detail: "Return your foot to the floor without leaning back.",
+        tone: "down",
+      };
+    }
+
+    return state === "FEET_DOWN"
+      ? {
+          headline: "Lift one knee",
+          detail: "Bring one knee toward hip height while keeping your torso tall.",
+          tone: "up",
+        }
+      : {
+          headline: "Stand tall",
+          detail: "Place both feet on the floor before you begin.",
+          tone: "wait",
+        };
   }
 
   if (state === "UP") {

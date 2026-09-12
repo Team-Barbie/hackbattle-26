@@ -1,0 +1,32 @@
+PhysioLoop prototype commit history (oldest to newest)
+
+2026-09-12 | 67f8868 | Initial commit
+- Added the repository README and initial ignore rules.
+
+2026-09-12 | 28d9f05 | feat: add live webcam feed
+- Created the React, TypeScript, and Vite application.
+- Added the live camera interface and its initial styling.
+
+2026-09-12 | 00b48c9 | feat: detect body landmarks from camera
+- Integrated MediaPipe Tasks Vision.
+- Added real-time pose landmark detection and camera overlay support.
+
+2026-09-12 | e530fd3 | added camera feed
+- Expanded camera and pose-detector handling.
+- Added local MediaPipe asset preparation and the implementation plan.
+
+2026-09-12 | ae80a17 | feat: mirror live pose onto a figure and harden MediaPipe loading
+- Added a separate mirrored pose figure.
+- Added One Euro landmark smoothing.
+- Added local and remote model-loading fallbacks, GPU/CPU fallbacks, and build configuration improvements.
+
+2026-09-12 | 47729ca | added joint angle utilities
+- Added reusable 3D-aware angle calculations.
+- Connected left and right knee-angle calculation to the live pose.
+
+2026-09-12 | 08ec1e8 | implemented squat state scanning
+- Added squat UP/DOWN state classification.
+- Used standing and bottom thresholds with hysteresis to reduce state flicker.
+- Displayed the squat state and knee angles in the interface.
+
+Note: This history documents implemented progress. Features described in PLAN.md after squat-state detection are roadmap items unless supported by a later source file or commit.
