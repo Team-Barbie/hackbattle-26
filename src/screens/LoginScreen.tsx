@@ -3,11 +3,19 @@ import Icon from "../components/Icon";
 
 type Props = {
   therapistName: string;
-  onLogin: (name: string) => void;
+  requiresCode: boolean;
+  loginError: string | null;
+  onLogin: (name: string, code: string) => void;
   onBack: () => void;
 };
 
-export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
+export default function LoginScreen({
+  therapistName,
+  requiresCode,
+  loginError,
+  onLogin,
+  onBack,
+}: Props) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const trimmed = name.trim();
@@ -16,7 +24,7 @@ export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
     event.preventDefault();
 
     if (trimmed) {
-      onLogin(trimmed);
+      onLogin(trimmed, code);
     }
   }
 
@@ -30,21 +38,17 @@ export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
       </div>
 
       <div className="page__header">
-        <p className="eyebrow">Patient sign-in</p>
-        <h1 className="display">Welcome back</h1>
-        <p className="lede">
-          Your plan from {therapistName} is ready. Tell us who you are to pick it up.
-        </p>
+        <h1>Patient sign-in</h1>
+        <p className="lede">Enter your name to open the plan from {therapistName}.</p>
       </div>
 
-      <form className="auth-form card" onSubmit={handleSubmit}>
+      <form className="auth-form" onSubmit={handleSubmit}>
         <label className="field">
-          <span>Your name</span>
+          <span>Name</span>
           <input
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Jamie Rivera"
             autoComplete="name"
             autoFocus
             required
@@ -53,20 +57,25 @@ export default function LoginScreen({ therapistName, onLogin, onBack }: Props) {
 
         <label className="field">
           <span>
-            Therapist code <em>(optional)</em>
+            Therapist code {requiresCode ? "" : <em>(optional)</em>}
           </span>
           <input
             type="text"
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            placeholder="e.g. RH-4821"
             autoComplete="off"
+            required={requiresCode}
           />
         </label>
 
-        <button type="submit" className="btn btn--lg btn--block btn--glow" disabled={!trimmed}>
+        {loginError && <p className="notice notice--error">{loginError}</p>}
+
+        <button
+          type="submit"
+          className="btn btn--lg btn--block"
+          disabled={!trimmed || (requiresCode && !code.trim())}
+        >
           Continue
-          <Icon name="forward" width={18} height={18} />
         </button>
       </form>
     </div>

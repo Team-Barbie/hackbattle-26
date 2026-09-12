@@ -73,6 +73,7 @@ export function combineArmReadings(
   left: ArmReading,
   right: ArmReading,
   maxDisagreement = 28,
+  onDisagreement: "null" | "higher" | "lower" = "higher",
 ): ArmReading {
   const usable = [left, right].filter(
     (reading): reading is { value: number; degrees: number; confidence: number } =>
@@ -90,7 +91,15 @@ export function combineArmReadings(
   const [a, b] = usable;
 
   if (Math.abs(a.degrees - b.degrees) > maxDisagreement) {
-    return { value: null, degrees: null, confidence: 0 };
+    if (onDisagreement === "null") {
+      return { value: null, degrees: null, confidence: 0 };
+    }
+
+    if (onDisagreement === "lower") {
+      return a.degrees < b.degrees ? a : b;
+    }
+
+    return a.degrees > b.degrees ? a : b;
   }
 
   const pick =
@@ -116,6 +125,7 @@ export function curlFromPose(pose: DetectedPose | null): ArmReading {
     curlReading(pose.leftShoulder, pose.leftElbow, pose.leftWrist),
     curlReading(pose.rightShoulder, pose.rightElbow, pose.rightWrist),
     34,
+    "lower",
   );
 }
 
