@@ -1,46 +1,69 @@
+import type { ThighReading } from "../../biomechanics/thighElevation";
+
 export type SquatState = "UP" | "DOWN";
 
-export const SQUAT_STANDING_ANGLE = 155;
-export const SQUAT_BOTTOM_ANGLE = 110;
+/** Thigh elevation, where 1 is standing upright and 0 is thighs parallel. */
+export const SQUAT_STANDING_ELEVATION = 0.8;
+export const SQUAT_BOTTOM_ELEVATION = 0.35;
 
-export function combineKneeAngles(left: number | null, right: number | null): number | null {
-  if (left === null && right === null) {
+/** Past this visibility gap the better-tracked leg is trusted on its own. */
+const CONFIDENCE_GAP = 0.15;
+
+/**
+ * Side-on is the stance we ask for, so the far leg is often occluded and its
+ * reading is noise. Averaging both legs drags the good one toward that noise,
+ * so a clearly better-tracked leg wins outright.
+ */
+export function combineThighElevations(
+  left: ThighReading,
+  right: ThighReading,
+): number | null {
+  const usable = [left, right].filter(
+    (reading): reading is { elevation: number; confidence: number } =>
+      reading.elevation !== null,
+  );
+
+  if (usable.length === 0) {
     return null;
   }
 
-  if (left === null) {
-    return right;
+  if (usable.length === 1) {
+    return usable[0].elevation;
   }
 
-  if (right === null) {
-    return left;
+  const [a, b] = usable;
+
+  if (Math.abs(a.confidence - b.confidence) > CONFIDENCE_GAP) {
+    return a.confidence > b.confidence ? a.elevation : b.elevation;
   }
 
-  return (left + right) / 2;
+  return (a.elevation + b.elevation) / 2;
 }
 
 /**
- * Hysteresis keeps the mid-range from flickering:
- * stand up past 155° to become UP, sit below 110° to become DOWN.
+ * Hysteresis keeps the mid-range from flickering: stand up past 0.8 to become
+ * UP, sink below 0.35 to become DOWN.
  */
 export function detectSquatState(
-  kneeAngle: number | null,
+  elevation: number | null,
   previous: SquatState | null = null,
 ): SquatState | null {
-  if (kneeAngle === null) {
+  if (elevation === null) {
     return previous;
   }
 
-  if (kneeAngle > SQUAT_STANDING_ANGLE) {
+  if (elevation > SQUAT_STANDING_ELEVATION) {
     return "UP";
   }
 
-  if (kneeAngle < SQUAT_BOTTOM_ANGLE) {
+  if (elevation < SQUAT_BOTTOM_ELEVATION) {
     return "DOWN";
   }
 
   if (previous === null) {
-    return kneeAngle >= (SQUAT_STANDING_ANGLE + SQUAT_BOTTOM_ANGLE) / 2 ? "UP" : "DOWN";
+    return elevation >= (SQUAT_STANDING_ELEVATION + SQUAT_BOTTOM_ELEVATION) / 2
+      ? "UP"
+      : "DOWN";
   }
 
   return previous;
