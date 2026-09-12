@@ -66,9 +66,15 @@ export default function ProfileScreen({ profile, plan, onClearHistory, onSwitchU
             <dt>Streak</dt>
             <dd>{currentStreak(profile)} days</dd>
           </div>
+          {profile.clinicCode && (
+            <div>
+              <dt>Clinic code</dt>
+              <dd>{profile.clinicCode}</dd>
+            </div>
+          )}
           <div>
             <dt>Storage</dt>
-            <dd>This device only</dd>
+            <dd>{profile.clinicCode ? "This device + live clinic" : "This device only"}</dd>
           </div>
         </dl>
       </section>

@@ -18,6 +18,7 @@ type Props = {
   profile: PatientProfile;
   plan: Prescription;
   publishedAt: string | null;
+  liveClinic: boolean;
   onStartSession: () => void;
   onOpenProgram: () => void;
 };
@@ -41,6 +42,7 @@ export default function HomeScreen({
   profile,
   plan,
   publishedAt,
+  liveClinic,
   onStartSession,
   onOpenProgram,
 }: Props) {
@@ -76,6 +78,7 @@ export default function HomeScreen({
             <p className="plan-card__meta">
               From {plan.therapist}
               {publishedAt ? ` · updated ${formatDay(publishedAt).toLowerCase()}` : ""}
+              {liveClinic ? " · live clinic" : ""}
             </p>
           </div>
           <span className="chip">

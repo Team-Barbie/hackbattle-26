@@ -3,14 +3,16 @@ import Icon from "../components/Icon";
 
 type Props = {
   therapistName: string;
+  cloudEnabled: boolean;
   requiresCode: boolean;
   loginError: string | null;
-  onLogin: (name: string, code: string) => void;
+  onLogin: (name: string, code: string) => void | Promise<void>;
   onBack: () => void;
 };
 
 export default function LoginScreen({
   therapistName,
+  cloudEnabled,
   requiresCode,
   loginError,
   onLogin,
@@ -18,13 +20,22 @@ export default function LoginScreen({
 }: Props) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
   const trimmed = name.trim();
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
-    if (trimmed) {
-      onLogin(trimmed, code);
+    if (!trimmed || busy) {
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      await onLogin(trimmed, code);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -39,7 +50,11 @@ export default function LoginScreen({
 
       <div className="page__header">
         <h1>Patient sign-in</h1>
-        <p className="lede">Enter your name to open the plan from {therapistName}.</p>
+        <p className="lede">
+          {cloudEnabled
+            ? "Enter your name and the access code your therapist published."
+            : `Enter your name to open the plan from ${therapistName}.`}
+        </p>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit}>
@@ -73,9 +88,9 @@ export default function LoginScreen({
         <button
           type="submit"
           className="btn btn--lg btn--block"
-          disabled={!trimmed || (requiresCode && !code.trim())}
+          disabled={busy || !trimmed || (requiresCode && !code.trim())}
         >
-          Continue
+          {busy ? "Opening plan…" : "Continue"}
         </button>
       </form>
     </div>
