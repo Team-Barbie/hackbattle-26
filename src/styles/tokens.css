@@ -1,0 +1,60 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap");
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #05070f;
+  --bg-2: #070a14;
+  --surface: #0f1420;
+  --surface-2: #151b2a;
+  --surface-3: #1c2436;
+  --line: #232c40;
+  --line-strong: #303c56;
+  --overlay: rgba(5, 7, 15, 0.72);
+
+  /* Text */
+  --text: #eef0f4;
+  --text-dim: #b7bdcc;
+  --muted: #838da3;
+
+  /* Brand */
+  --accent: #3b5bdb;
+  --accent-strong: #5470e6;
+  --accent-ink: #ffffff;
+  --accent-glow: rgba(59, 91, 219, 0.28);
+  --accent-tint: rgba(59, 91, 219, 0.14);
+
+  /* Semantic cue tones */
+  --tone-wait: #b7bdcc;
+  --tone-down: #f0a85c;
+  --tone-up: #5470e6;
+  --tone-hold: #22d3ee;
+  --danger: #eb484d;
+  --danger-tint: rgba(235, 72, 77, 0.12);
+
+  /* Shape */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 26px;
+  --r-pill: 999px;
+
+  /* Type */
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --fast: 140ms;
+  --slow: 280ms;
+
+  /* Layout */
+  --page-max: 760px;
+  --session-max: 1320px;
+  --tab-bar-clearance: 112px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+}
