@@ -19,10 +19,34 @@ export type CueInput = {
   repsTarget: number;
 };
 
-/**
- * The state machine decides what the body is doing; this decides what to say
- * about it. Nothing here reads landmarks, and nothing upstream writes copy.
- */
+const WAIT_IN_FRAME: Record<ExerciseId, Cue> = {
+  squat: {
+    headline: "Step into frame",
+    detail: "Move back until your head, hips, knees, and ankles are all visible.",
+    tone: "wait",
+  },
+  "lateral-raise": {
+    headline: "Step into frame",
+    detail: "Face the camera so both shoulders and arms stay visible.",
+    tone: "wait",
+  },
+  "bicep-curl": {
+    headline: "Step into frame",
+    detail: "Face the camera until both elbows and wrists are clearly visible.",
+    tone: "wait",
+  },
+  "shoulder-raise": {
+    headline: "Step into frame",
+    detail: "Stand so your torso and both hands stay inside the frame.",
+    tone: "wait",
+  },
+  "knee-raise": {
+    headline: "Step into frame",
+    detail: "Move back until your head, hips, knees, and ankles are all visible.",
+    tone: "wait",
+  },
+};
+
 export function nextCue({
   exerciseId,
   tracking,
@@ -32,11 +56,7 @@ export function nextCue({
   repsTarget,
 }: CueInput): Cue {
   if (!tracking) {
-    return {
-      headline: "Step into frame",
-      detail: "Move back until your head, hips, knees, and ankles are all visible.",
-      tone: "wait",
-    };
+    return WAIT_IN_FRAME[exerciseId];
   }
 
   if (repsDone >= repsTarget && repsTarget > 0) {
@@ -87,6 +107,50 @@ export function nextCue({
       : {
           headline: "Stand tall",
           detail: "Place both feet on the floor before you begin.",
+          tone: "wait",
+        };
+  }
+
+  if (exerciseId === "lateral-raise") {
+    if (state === "LATERAL_UP") {
+      return {
+        headline: "Lower slowly",
+        detail: "Control the way down — don't drop the arms.",
+        tone: "down",
+      };
+    }
+
+    return state === "LATERAL_DOWN"
+      ? {
+          headline: "Raise the arms",
+          detail: "Lift both arms out to the sides, up to shoulder height.",
+          tone: "up",
+        }
+      : {
+          headline: "Get set",
+          detail: "Stand tall, arms relaxed at your sides.",
+          tone: "wait",
+        };
+  }
+
+  if (exerciseId === "bicep-curl") {
+    if (state === "ARMS_CURLED") {
+      return {
+        headline: "Lower slowly",
+        detail: "Straighten the arms all the way without swinging.",
+        tone: "down",
+      };
+    }
+
+    return state === "ARMS_EXTENDED"
+      ? {
+          headline: "Curl up",
+          detail: "Bend the elbows and bring both hands toward your shoulders.",
+          tone: "up",
+        }
+      : {
+          headline: "Get set",
+          detail: "Elbows close to your ribs, arms long.",
           tone: "wait",
         };
   }

@@ -3,10 +3,12 @@ import {
   PoseLandmarker,
   type NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
+import { isReliable, landmarkVisibility } from "./landmarks";
 import { LandmarkSmoother } from "./oneEuro";
 
+const MEDIAPIPE_VERSION = "0.10.21";
 const LOCAL_WASM_ROOT = `${import.meta.env.BASE_URL}mediapipe/wasm`;
-const CDN_WASM_ROOT = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
+const CDN_WASM_ROOT = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
 const LOCAL_MODEL_PATH = `${import.meta.env.BASE_URL}models/pose_landmarker_lite.task`;
 const REMOTE_MODEL_PATH =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
@@ -29,7 +31,7 @@ const LANDMARK_INDEX = {
 
 const MIN_DETECT_INTERVAL_MS = 16;
 const FRAME_MARGIN = 0.03;
-const MIN_BODY_CHAIN_LENGTH = 0.5;
+const MIN_BODY_CHAIN_LENGTH = 0.4;
 const MIN_HEAD_LENGTH = 0.03;
 const MAX_HEAD_LENGTH = 0.25;
 const MIN_SEGMENT_LENGTH = 0.06;
@@ -101,7 +103,7 @@ function toPoint(
     x: point.x,
     y: point.y,
     z: point.z,
-    visibility: point.visibility ?? 0,
+    visibility: landmarkVisibility(point),
   };
 }
 
@@ -134,8 +136,8 @@ function formatPoint(point: LandmarkPoint): string {
   return `(${point.x.toFixed(2)}, ${point.y.toFixed(2)})`;
 }
 
-export function isVisible(point: LandmarkPoint | null, threshold = 0.3): point is LandmarkPoint {
-  return Boolean(point && point.visibility >= threshold);
+export function isVisible(point: LandmarkPoint | null, threshold = 0.18): point is LandmarkPoint {
+  return isReliable(point, threshold);
 }
 
 function pointDistance(a: NormalizedLandmark, b: NormalizedLandmark): number {
@@ -144,10 +146,10 @@ function pointDistance(a: NormalizedLandmark, b: NormalizedLandmark): number {
 
 function isInsideFrame(point: NormalizedLandmark): boolean {
   return (
-    point.x >= FRAME_MARGIN &&
-    point.x <= 1 - FRAME_MARGIN &&
-    point.y >= FRAME_MARGIN &&
-    point.y <= 1 - FRAME_MARGIN
+    point.x >= -FRAME_MARGIN &&
+    point.x <= 1 + FRAME_MARGIN &&
+    point.y >= -FRAME_MARGIN &&
+    point.y <= 1 + FRAME_MARGIN
   );
 }
 
@@ -168,7 +170,7 @@ function hasPlausibleSide(
     !knee ||
     !ankle ||
     [nose, shoulder, hip, knee, ankle].some(
-      (point) => (point.visibility ?? 0) < threshold || !isInsideFrame(point),
+      (point) => landmarkVisibility(point) < threshold || !isInsideFrame(point),
     )
   ) {
     return false;
@@ -206,7 +208,7 @@ function hasPlausibleSide(
  * fit a confident skeleton to a hand or a cropped person. Require a large,
  * in-frame, proportionally plausible body chain on either side.
  */
-export function hasFullBodyVisible(pose: DetectedPose | null, threshold = 0.3): boolean {
+export function hasFullBodyVisible(pose: DetectedPose | null, threshold = 0.18): boolean {
   if (!pose) {
     return false;
   }
@@ -222,6 +224,22 @@ export function hasFullBodyVisible(pose: DetectedPose | null, threshold = 0.3): 
       ["rightShoulder", "rightHip", "rightKnee", "rightAnkle"],
       threshold,
     )
+  );
+}
+
+/** Shoulders plus at least one arm — enough for curls and lateral raises. */
+export function hasUpperBodyVisible(pose: DetectedPose | null, threshold = 0.18): boolean {
+  if (!pose) {
+    return false;
+  }
+
+  if (!isVisible(pose.leftShoulder, threshold) || !isVisible(pose.rightShoulder, threshold)) {
+    return false;
+  }
+
+  return (
+    isVisible(pose.leftElbow, threshold) ||
+    isVisible(pose.rightElbow, threshold)
   );
 }
 
@@ -241,12 +259,21 @@ export function formatPoseLog(pose: DetectedPose): string {
   return parts.join(" | ");
 }
 
+function absoluteUrl(path: string): string {
+  return new URL(path, window.location.href).href;
+}
+
+function wasmRoot(path: string): string {
+  return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
 async function createLandmarker(
-  wasmRoot: string,
+  filesetRoot: string,
   modelAssetPath: string,
   delegate: "GPU" | "CPU",
 ): Promise<PoseLandmarker> {
-  const vision = await FilesetResolver.forVisionTasks(wasmRoot);
+  const root = wasmRoot(filesetRoot);
+  const vision = await FilesetResolver.forVisionTasks(root);
 
   return PoseLandmarker.createFromOptions(vision, {
     baseOptions: {
@@ -255,22 +282,19 @@ async function createLandmarker(
     },
     runningMode: "VIDEO",
     numPoses: 1,
-    minPoseDetectionConfidence: 0.28,
-    minPosePresenceConfidence: 0.28,
-    minTrackingConfidence: 0.28,
+    minPoseDetectionConfidence: 0.3,
+    minPosePresenceConfidence: 0.3,
+    minTrackingConfidence: 0.3,
   });
 }
 
 async function createPoseDetector(): Promise<PoseDetector> {
-  const loadAttempts: Array<{
-    wasmRoot: string;
-    modelAssetPath: string;
-    delegate: "GPU" | "CPU";
-  }> = [
-    { wasmRoot: LOCAL_WASM_ROOT, modelAssetPath: LOCAL_MODEL_PATH, delegate: "GPU" },
-    { wasmRoot: LOCAL_WASM_ROOT, modelAssetPath: LOCAL_MODEL_PATH, delegate: "CPU" },
-    { wasmRoot: CDN_WASM_ROOT, modelAssetPath: LOCAL_MODEL_PATH, delegate: "CPU" },
-    { wasmRoot: CDN_WASM_ROOT, modelAssetPath: REMOTE_MODEL_PATH, delegate: "CPU" },
+  const localModel = absoluteUrl(LOCAL_MODEL_PATH);
+  const loadAttempts: Array<{ wasmRoot: string; model: string; delegate: "GPU" | "CPU" }> = [
+    { wasmRoot: CDN_WASM_ROOT, model: localModel, delegate: "CPU" },
+    { wasmRoot: CDN_WASM_ROOT, model: REMOTE_MODEL_PATH, delegate: "CPU" },
+    { wasmRoot: absoluteUrl(`${LOCAL_WASM_ROOT}/`), model: localModel, delegate: "CPU" },
+    { wasmRoot: CDN_WASM_ROOT, model: localModel, delegate: "GPU" },
   ];
   let landmarker: PoseLandmarker | undefined;
   let lastError: unknown;
@@ -278,8 +302,8 @@ async function createPoseDetector(): Promise<PoseDetector> {
   for (const attempt of loadAttempts) {
     try {
       landmarker = await withTimeout(
-        createLandmarker(attempt.wasmRoot, attempt.modelAssetPath, attempt.delegate),
-        attempt.delegate === "GPU" ? 8000 : 15000,
+        createLandmarker(attempt.wasmRoot, attempt.model, attempt.delegate),
+        45000,
         `pose load ${attempt.delegate}`,
       );
       console.info("[pose] loaded", attempt);

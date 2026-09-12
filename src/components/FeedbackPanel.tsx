@@ -1,9 +1,8 @@
 import { thighAngleDegrees } from "../biomechanics/thighElevation";
 import type { ExerciseSession } from "../hooks/useExerciseSession";
 
-function formatThigh(elevation: number | null): string {
-  const degrees = thighAngleDegrees(elevation);
-  return degrees === null ? "—" : `${Math.round(degrees)}°`;
+function formatDegrees(value: number | null): string {
+  return value === null ? "—" : `${Math.round(value)}°`;
 }
 
 export default function FeedbackPanel({ session }: { session: ExerciseSession }) {
@@ -30,7 +29,7 @@ export default function FeedbackPanel({ session }: { session: ExerciseSession })
         {session.exerciseId === "squat" && (
           <div>
             <dt>Last rep depth</dt>
-            <dd>{formatThigh(lastRepDepth)}</dd>
+            <dd>{formatDegrees(thighAngleDegrees(lastRepDepth))}</dd>
           </div>
         )}
       </dl>
