@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  createPoseDetector,
+  formatPoseLog,
+  type DetectedPose,
+  type PoseDetector,
+} from "../vision/poseDetector";
 
 type CameraStatus = "idle" | "starting" | "live" | "stopped" | "error";
 
@@ -21,8 +27,12 @@ function cameraErrorMessage(error: unknown): string {
 export default function CameraView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<PoseDetector | null>(null);
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [poseError, setPoseError] = useState<string | null>(null);
+  const [poseReady, setPoseReady] = useState(false);
+  const [pose, setPose] = useState<DetectedPose | null>(null);
 
   async function requestStream() {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -106,8 +116,80 @@ export default function CameraView() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    let detector: PoseDetector | null = null;
+
+    async function loadDetector() {
+      try {
+        detector = await createPoseDetector();
+
+        if (cancelled) {
+          detector.close();
+          return;
+        }
+
+        detectorRef.current = detector;
+        setPoseReady(true);
+        setPoseError(null);
+      } catch (loadError) {
+        console.error("[pose] failed to load detector", loadError);
+
+        if (!cancelled) {
+          setPoseReady(false);
+          setPoseError("Could not load the pose model.");
+        }
+      }
+    }
+
+    void loadDetector();
+
+    return () => {
+      cancelled = true;
+      detector?.close();
+      detectorRef.current = null;
+      setPoseReady(false);
+    };
+  }, []);
+
   const isLive = status === "live";
   const isBusy = status === "starting";
+
+  useEffect(() => {
+    if (!isLive || !poseReady) {
+      return;
+    }
+
+    let frameId = 0;
+    let lastLoggedAt = 0;
+
+    const detectFrame = () => {
+      const video = videoRef.current;
+      const detector = detectorRef.current;
+
+      if (video && detector) {
+        const nextPose = detector.detectPose(video);
+        const now = performance.now();
+
+        if (now - lastLoggedAt >= 400) {
+          lastLoggedAt = now;
+          setPose(nextPose);
+
+          if (nextPose) {
+            console.log("[pose]", formatPoseLog(nextPose), nextPose);
+          }
+        }
+      }
+
+      frameId = requestAnimationFrame(detectFrame);
+    };
+
+    frameId = requestAnimationFrame(detectFrame);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+    };
+  }, [isLive, poseReady]);
 
   return (
     <section className="camera-card">
@@ -135,6 +217,22 @@ export default function CameraView() {
       </div>
 
       {error && <p className="camera-error">{error}</p>}
+      {poseError && <p className="camera-error">{poseError}</p>}
+
+      <div className="pose-log" aria-live="polite">
+        <p className="pose-log-title">
+          {poseReady ? (pose ? "Pose landmarks" : "Looking for a person…") : "Loading pose model…"}
+        </p>
+        {pose && (
+          <pre className="pose-log-coords">
+            {`L shoulder ${pose.leftShoulder.x.toFixed(2)}, ${pose.leftShoulder.y.toFixed(2)}
+L hip      ${pose.leftHip.x.toFixed(2)}, ${pose.leftHip.y.toFixed(2)}
+L knee     ${pose.leftKnee.x.toFixed(2)}, ${pose.leftKnee.y.toFixed(2)}
+L ankle    ${pose.leftAnkle.x.toFixed(2)}, ${pose.leftAnkle.y.toFixed(2)}
+R knee     ${pose.rightKnee.x.toFixed(2)}, ${pose.rightKnee.y.toFixed(2)}`}
+          </pre>
+        )}
+      </div>
 
       <div className="camera-controls">
         <button type="button" onClick={() => void startCamera()} disabled={isLive || isBusy}>
