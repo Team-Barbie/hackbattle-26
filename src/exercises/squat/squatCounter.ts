@@ -2,13 +2,14 @@ import type { SquatState } from "./squatState";
 
 export type SquatRep = {
   index: number;
-  minKneeAngle: number | null;
+  /** Lowest thigh elevation reached — 0 is parallel, so smaller is deeper. */
+  deepestElevation: number | null;
 };
 
 export type SquatCounter = {
   readonly reps: SquatRep[];
   readonly count: number;
-  update: (state: SquatState | null, kneeAngle: number | null) => SquatRep | null;
+  update: (state: SquatState | null, elevation: number | null) => SquatRep | null;
   reset: () => void;
 };
 
@@ -28,9 +29,9 @@ export function createSquatCounter(): SquatCounter {
     get count() {
       return reps.length;
     },
-    update(state, kneeAngle) {
-      if (kneeAngle !== null) {
-        deepest = Math.min(deepest, kneeAngle);
+    update(state, elevation) {
+      if (elevation !== null) {
+        deepest = Math.min(deepest, elevation);
       }
 
       let completed: SquatRep | null = null;
@@ -38,7 +39,7 @@ export function createSquatCounter(): SquatCounter {
       if (previous === "DOWN" && state === "UP") {
         completed = {
           index: reps.length + 1,
-          minKneeAngle: Number.isFinite(deepest) ? deepest : null,
+          deepestElevation: Number.isFinite(deepest) ? deepest : null,
         };
         reps = [...reps, completed];
         deepest = Number.POSITIVE_INFINITY;
