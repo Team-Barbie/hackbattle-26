@@ -5,19 +5,19 @@
   font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: #000;
+  background: #05070f;
   color: #efefef;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 
   --text: #efefef;
-  --accent: #a855f7;
-  --accent-hover: #c084fc;
-  --accent-glow-light: #e9d5ff;
-  --accent-glow-mid: #7c3aed;
+  --accent: #3b5bdb;
+  --accent-hover: #5470e6;
+  --accent-glow-light: #c7d2fe;
+  --accent-glow-mid: #1e3a8a;
   --on-accent: #ffffff;
-  --hold: #0099ff;
+  --hold: #22d3ee;
   --warn: #f0a85c;
   --danger: #eb484d;
   --surface: #1c1c1e;
@@ -43,9 +43,9 @@ body,
 body {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at 50% 115%, rgba(124, 58, 237, 0.35), transparent 55%),
-    radial-gradient(circle at 50% 100%, rgba(233, 213, 255, 0.12), transparent 40%),
-    #000;
+    radial-gradient(ellipse at 50% 115%, rgba(30, 58, 138, 0.4), transparent 55%),
+    radial-gradient(circle at 50% 100%, rgba(199, 210, 254, 0.1), transparent 40%),
+    #05070f;
 }
 
 .app {
@@ -322,7 +322,7 @@ body {
 
 .camera-frame.is-live {
   border-color: var(--accent);
-  box-shadow: 0 20px 60px -10px rgba(168, 85, 247, 0.25);
+  box-shadow: 0 20px 60px -10px rgba(59, 91, 219, 0.3);
 }
 
 .camera-stage {
