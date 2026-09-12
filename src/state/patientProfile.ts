@@ -1,9 +1,15 @@
-import type { ExerciseId } from "../exercises/exerciseCatalog";
+import { isExerciseId, type ExerciseId } from "../exercises/exerciseCatalog";
+import type { FormIssueType } from "../exercises/formIssues";
+import { ISSUE_LABELS } from "../exercises/formIssues";
+import { localDay } from "./dates";
 
 export type StepResult = {
   exerciseId: ExerciseId;
   targetReps: number;
   reps: number;
+  goodReps: number;
+  flaggedReps: number;
+  mainIssue: FormIssueType | null;
 };
 
 export type SessionRecord = {
@@ -28,8 +34,24 @@ export const READINESS_LABELS = ["Rough", "Sore", "Okay", "Good", "Great"] as co
 
 const STORAGE_KEY = "physioloop.patient";
 
-function isoDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
+function sanitiseStep(step: Partial<StepResult> | undefined): StepResult | null {
+  if (!step || typeof step.exerciseId !== "string" || !isExerciseId(step.exerciseId)) {
+    return null;
+  }
+
+  const reps = Number(step.reps);
+  const target = Number(step.targetReps);
+  const good = Number(step.goodReps);
+  const flagged = Number(step.flaggedReps);
+
+  return {
+    exerciseId: step.exerciseId,
+    targetReps: Number.isFinite(target) ? target : 0,
+    reps: Number.isFinite(reps) ? reps : 0,
+    goodReps: Number.isFinite(good) ? good : Number.isFinite(reps) ? reps : 0,
+    flaggedReps: Number.isFinite(flagged) ? flagged : 0,
+    mainIssue: step.mainIssue && step.mainIssue in ISSUE_LABELS ? step.mainIssue : null,
+  };
 }
 
 function save(profile: PatientProfile) {
@@ -57,8 +79,14 @@ export function loadPatientProfile(): PatientProfile | null {
     return {
       name: parsed.name,
       createdAt: parsed.createdAt ?? new Date().toISOString(),
-      // Drop records from the older squat-only schema that have no per-step results.
-      sessions: (parsed.sessions ?? []).filter((session) => Array.isArray(session.steps)),
+      sessions: (parsed.sessions ?? [])
+        .filter((session) => Array.isArray(session.steps))
+        .map((session) => ({
+          ...session,
+          steps: session.steps
+            .map((step) => sanitiseStep(step))
+            .filter((step): step is StepResult => step !== null),
+        })),
     };
   } catch {
     return null;
@@ -125,16 +153,16 @@ export function totalReps(profile: PatientProfile): number {
  * so it only actually resets once a day is missed entirely.
  */
 export function currentStreak(profile: PatientProfile): number {
-  const days = new Set(profile.sessions.map((session) => session.date.slice(0, 10)));
+  const days = new Set(profile.sessions.map((session) => localDay(session.date)));
   const cursor = new Date();
 
-  if (!days.has(isoDay(cursor))) {
+  if (!days.has(localDay(cursor))) {
     cursor.setDate(cursor.getDate() - 1);
   }
 
   let streak = 0;
 
-  while (days.has(isoDay(cursor))) {
+  while (days.has(localDay(cursor))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);
   }
@@ -157,7 +185,7 @@ export function recentActivity(profile: PatientProfile, days = 7): DayActivity[]
   const buckets = new Map<string, { reps: number; sessions: number }>();
 
   for (const session of profile.sessions) {
-    const day = session.date.slice(0, 10);
+    const day = localDay(session.date);
     const bucket = buckets.get(day) ?? { reps: 0, sessions: 0 };
     bucket.reps += sessionReps(session);
     bucket.sessions += 1;
@@ -170,7 +198,7 @@ export function recentActivity(profile: PatientProfile, days = 7): DayActivity[]
   for (let offset = days - 1; offset >= 0; offset -= 1) {
     const date = new Date(today);
     date.setDate(today.getDate() - offset);
-    const day = isoDay(date);
+    const day = localDay(date);
     const bucket = buckets.get(day);
 
     result.push({

@@ -20,33 +20,49 @@ type Props = {
   onExit: () => void;
 };
 
+type BankedStep = StepResult;
+
 export default function SessionScreen({ plan, onFinish, onExit }: Props) {
-  const session = useExerciseSession();
-  const { loadPrescription } = session;
+  const session = useExerciseSession({ plan });
   const startedAtRef = useRef(performance.now());
-  const [repsByStep, setRepsByStep] = useState<number[]>([]);
+  const [repsByStep, setRepsByStep] = useState<BankedStep[]>([]);
+  const [leavePrompt, setLeavePrompt] = useState(false);
 
-  useEffect(() => {
-    loadPrescription(plan);
-    startedAtRef.current = performance.now();
-    setRepsByStep([]);
-    // Only reload when the requested plan changes, not on every session tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan]);
-
-  // Bank the live rep count against the step it belongs to. The engine resets
-  // `reps` to 0 when it advances, so earlier entries keep their final value.
   useEffect(() => {
     setRepsByStep((current) => {
-      if (current[session.stepIndex] === session.reps) {
+      const nextEntry: BankedStep = {
+        exerciseId: session.exerciseId,
+        targetReps: session.targetReps,
+        reps: session.reps,
+        goodReps: session.goodReps,
+        flaggedReps: session.flaggedReps,
+        mainIssue: session.mainIssue,
+      };
+      const previous = current[session.stepIndex];
+
+      if (
+        previous &&
+        previous.reps === nextEntry.reps &&
+        previous.goodReps === nextEntry.goodReps &&
+        previous.flaggedReps === nextEntry.flaggedReps &&
+        previous.mainIssue === nextEntry.mainIssue
+      ) {
         return current;
       }
 
       const next = [...current];
-      next[session.stepIndex] = session.reps;
+      next[session.stepIndex] = nextEntry;
       return next;
     });
-  }, [session.reps, session.stepIndex]);
+  }, [
+    session.exerciseId,
+    session.flaggedReps,
+    session.goodReps,
+    session.mainIssue,
+    session.reps,
+    session.stepIndex,
+    session.targetReps,
+  ]);
 
   const handleRestart = useCallback(() => {
     setRepsByStep([]);
@@ -55,19 +71,39 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
 
   const buildOutcome = useCallback(
     (): SessionOutcome => ({
-      steps: session.plan.steps.map((step, index) => ({
-        exerciseId: step.exerciseId,
-        targetReps: step.targetReps,
-        reps: Math.min(step.targetReps, repsByStep[index] ?? 0),
-      })),
+      steps: session.plan.steps.map((step, index) => {
+        const banked = repsByStep[index];
+        const reps = Math.min(step.targetReps, banked?.reps ?? 0);
+
+        return {
+          exerciseId: step.exerciseId,
+          targetReps: step.targetReps,
+          reps,
+          goodReps: Math.min(reps, banked?.goodReps ?? 0),
+          flaggedReps: Math.min(reps, banked?.flaggedReps ?? 0),
+          mainIssue: banked?.mainIssue ?? null,
+        };
+      }),
       durationMs: performance.now() - startedAtRef.current,
     }),
     [repsByStep, session.plan.steps],
   );
 
-  function handleExit() {
+  const hasProgress =
+    session.reps > 0 || session.planComplete || repsByStep.some((step) => (step?.reps ?? 0) > 0);
+
+  function leaveWithoutSaving() {
     session.stopCamera();
     onExit();
+  }
+
+  function handleExit() {
+    if (hasProgress) {
+      setLeavePrompt(true);
+      return;
+    }
+
+    leaveWithoutSaving();
   }
 
   function handleFinish() {
@@ -75,7 +111,7 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
     onFinish(buildOutcome());
   }
 
-  const bankedReps = repsByStep.reduce((total, reps) => total + (reps ?? 0), 0);
+  const bankedReps = repsByStep.reduce((total, step) => total + (step?.reps ?? 0), 0);
   const { planComplete } = session;
 
   return (
@@ -96,10 +132,7 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
           </p>
         </div>
         <div>
-          <span className={`chip${session.isLive ? " chip--accent" : ""}`}>
-            <i className={`dot${session.isLive && !session.tracking ? " dot--pulse" : ""}`} />
-            {session.isLive ? "Live" : "Paused"}
-          </span>
+          <span className="label">{session.isLive ? "Camera on" : "Camera off"}</span>
         </div>
       </header>
 
@@ -108,35 +141,50 @@ export default function SessionScreen({ plan, onFinish, onExit }: Props) {
 
         <aside className="session__rail">
           <RepDial session={session} />
-          <StepRail session={session} repsByStep={repsByStep} />
+          <StepRail session={session} repsByStep={repsByStep.map((step) => step?.reps ?? 0)} />
           <Readouts session={session} />
-          <SessionControls
-            session={session}
-            onRestartPlan={handleRestart}
-            className="card--span"
-          />
+          <SessionControls session={session} onRestartPlan={handleRestart} className="card--span" />
         </aside>
       </div>
 
-      <footer className={`session__footer${planComplete ? " is-complete" : ""}`}>
-        <div className="session__footer-copy">
-          <strong>
-            {planComplete ? "Plan complete. Nice work." : `${bankedReps} reps banked so far`}
-          </strong>
-          <span>
-            {planComplete
-              ? "Finish to save this session to your history."
-              : "You can finish early; whatever you've done gets saved."}
-          </span>
-        </div>
-        <button
-          type="button"
-          className={`btn btn--lg${planComplete ? " btn--glow" : " btn--ghost"}`}
-          onClick={handleFinish}
-        >
-          <Icon name="check" width={18} height={18} />
-          {planComplete ? "Finish session" : "Finish early"}
-        </button>
+      <footer className="session__footer">
+        {leavePrompt ? (
+          <>
+            <div className="session__footer-copy">
+              <strong>Leave this session?</strong>
+              <span>Save what you’ve done, or discard it.</span>
+            </div>
+            <div className="session__footer-actions">
+              <button type="button" className="btn btn--ghost" onClick={() => setLeavePrompt(false)}>
+                Stay
+              </button>
+              <button type="button" className="btn btn--outline" onClick={leaveWithoutSaving}>
+                Discard
+              </button>
+              <button type="button" className="btn" onClick={handleFinish}>
+                Save and leave
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="session__footer-copy">
+              <strong>{planComplete ? "All exercises complete" : `${bankedReps} reps so far`}</strong>
+              <span>
+                {planComplete
+                  ? "Finish to save this session."
+                  : "Finishing early saves what you've done."}
+              </span>
+            </div>
+            <button
+              type="button"
+              className={`btn btn--lg${planComplete ? "" : " btn--ghost"}`}
+              onClick={handleFinish}
+            >
+              {planComplete ? "Finish session" : "Finish early"}
+            </button>
+          </>
+        )}
       </footer>
     </div>
   );

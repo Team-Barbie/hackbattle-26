@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import TabBar, { type PatientTab } from "./components/TabBar";
 import type { ExerciseId } from "./exercises/exerciseCatalog";
 import { exerciseName } from "./exercises/exerciseCatalog";
-import { createPlanStep, type Prescription } from "./exercises/prescription";
+import { codesMatch, createPlanStep, type Prescription } from "./exercises/prescription";
 import ExerciseDetailScreen from "./screens/ExerciseDetailScreen";
 import HomeScreen from "./screens/HomeScreen";
 import LoginScreen from "./screens/LoginScreen";
@@ -13,6 +13,7 @@ import ReadinessScreen from "./screens/ReadinessScreen";
 import RoleSelectScreen, { type Role } from "./screens/RoleSelectScreen";
 import SessionScreen, { type SessionOutcome } from "./screens/SessionScreen";
 import SessionSummaryScreen from "./screens/SessionSummaryScreen";
+import TherapistScreen from "./screens/TherapistScreen";
 import {
   clearPatientProfile,
   clearSessionHistory,
@@ -22,11 +23,18 @@ import {
   type PatientProfile,
   type SessionRecord,
 } from "./state/patientProfile";
-import { loadStoredPrescription, type StoredPrescription } from "./state/prescriptionStore";
+import {
+  consumeSharedPlanFromUrl,
+  loadStoredPrescription,
+  publishPrescription,
+  resetPrescription,
+  type StoredPrescription,
+} from "./state/prescriptionStore";
 
 type Route =
   | { name: "role" }
   | { name: "login" }
+  | { name: "therapist" }
   | { name: "home" }
   | { name: "program" }
   | { name: "exercise"; exerciseId: ExerciseId }
@@ -56,7 +64,10 @@ function practicePlan(exerciseId: ExerciseId, source: Prescription): Prescriptio
 
 export default function App() {
   const [profile, setProfile] = useState<PatientProfile | null>(() => loadPatientProfile());
-  const [stored] = useState<StoredPrescription>(() => loadStoredPrescription());
+  const [stored, setStored] = useState<StoredPrescription>(() =>
+    consumeSharedPlanFromUrl() ?? loadStoredPrescription(),
+  );
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(() =>
     loadPatientProfile() ? { name: "home" } : { name: "role" },
   );
@@ -70,13 +81,20 @@ export default function App() {
 
   function handleSelectRole(role: Role) {
     if (role === "therapist") {
+      go({ name: "therapist" });
       return;
     }
 
     go(profile ? { name: "home" } : { name: "login" });
   }
 
-  function handleLogin(name: string) {
+  function handleLogin(name: string, code: string) {
+    if (!codesMatch(plan.accessCode, code)) {
+      setLoginError("That therapist code does not match this plan.");
+      return;
+    }
+
+    setLoginError(null);
     setProfile(createPatientProfile(name));
     go({ name: "home" });
   }
@@ -97,11 +115,7 @@ export default function App() {
     }
   }
 
-  function handleFinishSession(
-    outcome: SessionOutcome,
-    sessionPlan: Prescription,
-    readiness: number | null,
-  ) {
+  function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
     if (!profile) {
       go({ name: "role" });
       return;
@@ -120,12 +134,38 @@ export default function App() {
     go({ name: "summary", record: updated.sessions[updated.sessions.length - 1] });
   }
 
+  function handlePublish(nextPlan: Prescription) {
+    setStored(publishPrescription(nextPlan));
+  }
+
+  function handleResetPrescription() {
+    setStored(resetPrescription());
+  }
+
+  if (route.name === "therapist") {
+    return (
+      <TherapistScreen
+        stored={stored}
+        patient={profile}
+        onPublish={handlePublish}
+        onResetToDefault={handleResetPrescription}
+        onBack={() => go({ name: "role" })}
+        onPreviewAsPatient={() => go(profile ? { name: "home" } : { name: "login" })}
+      />
+    );
+  }
+
   if (route.name === "login") {
     return (
       <LoginScreen
         therapistName={plan.therapist}
         onLogin={handleLogin}
-        onBack={() => go({ name: "role" })}
+        requiresCode={Boolean(plan.accessCode)}
+        loginError={loginError}
+        onBack={() => {
+          setLoginError(null);
+          go({ name: "role" });
+        }}
       />
     );
   }
@@ -151,7 +191,7 @@ export default function App() {
 
     return (
       <SessionScreen
-        key={sessionPlan.title}
+        key={sessionPlan.steps.map((step) => `${step.id}:${step.exerciseId}:${step.targetReps}`).join("|")}
         plan={sessionPlan}
         onFinish={(outcome) => handleFinishSession(outcome, sessionPlan, readiness)}
         onExit={() => go({ name: "home" })}

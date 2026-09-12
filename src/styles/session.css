@@ -84,6 +84,12 @@
   font-size: 0.8rem;
 }
 
+.session__footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* ---------- Camera stage ---------- */
 
 .camera {
@@ -289,6 +295,10 @@
 
 .hud__headline.tone-hold {
   color: var(--tone-hold);
+}
+
+.hud__headline.tone-correct {
+  color: var(--tone-down);
 }
 
 .hud__detail {
