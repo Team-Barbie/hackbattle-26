@@ -169,7 +169,12 @@ function thighReadingsFromPose(pose: DetectedPose | null) {
   };
 }
 
-export function useExerciseSession() {
+export type ExerciseSessionOptions = {
+  /** Prescription to run. Falls back to the default plan when empty or omitted. */
+  plan?: Prescription;
+};
+
+export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const figureRef = useRef<HTMLCanvasElement>(null);
@@ -209,7 +214,9 @@ export function useExerciseSession() {
   const [videoAspect, setVideoAspect] = useState("16 / 9");
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [plan, setPlan] = useState<Prescription>(DEFAULT_PRESCRIPTION);
+  const [plan, setPlan] = useState<Prescription>(() =>
+    options.plan && options.plan.steps.length > 0 ? options.plan : DEFAULT_PRESCRIPTION,
+  );
   const [stepIndex, setStepIndex] = useState(0);
   const [referenceExercise, setReferenceExercise] = useState<ReferenceExercise | null>(() =>
     loadReferenceExercise(),
