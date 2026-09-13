@@ -18,14 +18,18 @@ import SessionSummaryScreen from "./screens/SessionSummaryScreen";
 import TherapistInboxScreen from "./screens/TherapistInboxScreen";
 import TherapistScreen from "./screens/TherapistScreen";
 import {
+  fetchExerciseReferences,
   fetchClinicPlan,
   fetchClinicSessions,
   isClinicCloudEnabled,
   normalizeClinicCode,
   publishClinicPlan,
-  publishClinicSession,
+  publishSessionToTherapist,
+  publishExerciseReference,
   subscribeClinic,
+  subscribeExerciseReferences,
   type ClinicSession,
+  type SharedExerciseReference,
 } from "./state/clinicCloud";
 import {
   clearPatientProfile,
@@ -60,7 +64,12 @@ type Route =
   | { name: "profile" }
   | { name: "readiness"; plan: Prescription }
   | { name: "session"; plan: Prescription; readiness: number | null }
-  | { name: "summary"; record: SessionRecord };
+  | {
+      name: "summary";
+      record: SessionRecord;
+      clinicCode?: string;
+      therapistDelivery?: "sent" | "skipped" | "failed";
+    };
 
 const TAB_FOR_ROUTE: Partial<Record<Route["name"], PatientTab>> = {
   home: "home",
@@ -127,6 +136,7 @@ export default function App() {
     consumeSharedPlanFromUrl() ?? loadStoredPrescription(),
   );
   const [clinicSessions, setClinicSessions] = useState<ClinicSession[]>([]);
+  const [exerciseReferences, setExerciseReferences] = useState<SharedExerciseReference[]>([]);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(() =>
     loadPatientProfile() ? { name: "home" } : { name: "role" },
@@ -195,6 +205,40 @@ export default function App() {
     };
   }, [clinicCode, cloudEnabled]);
 
+  useEffect(() => {
+    if (!cloudEnabled) {
+      setExerciseReferences([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchExerciseReferences()
+      .then((references) => {
+        if (!cancelled) {
+          setExerciseReferences(references);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setExerciseReferences([]);
+        }
+      });
+
+    const unsubscribe = subscribeExerciseReferences((reference) => {
+      setExerciseReferences((current) =>
+        current.some((item) => item.id === reference.id)
+          ? current
+          : [reference, ...current].slice(0, 100),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [cloudEnabled]);
+
   function handleSelectRole(role: Role) {
     if (role === "therapist") {
       go({ name: "therapist" });
@@ -258,7 +302,7 @@ export default function App() {
     }
   }
 
-  function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
+  async function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
     if (!profile) {
       go({ name: "role" });
       return;
@@ -277,13 +321,18 @@ export default function App() {
 
     setProfile(updated);
 
+    let therapistDelivery: "sent" | "skipped" | "failed" = "skipped";
+
     if (cloudEnabled && sessionClinic && latest) {
-      void publishClinicSession(sessionClinic, updated.name, latest).catch(() => {
-        // Local history still saved.
-      });
+      try {
+        await publishSessionToTherapist(sessionClinic, updated.name, latest);
+        therapistDelivery = "sent";
+      } catch {
+        therapistDelivery = "failed";
+      }
     }
 
-    go({ name: "summary", record: latest });
+    go({ name: "summary", record: latest, clinicCode: sessionClinic, therapistDelivery });
   }
 
   async function handlePublish(nextPlan: Prescription) {
@@ -308,6 +357,7 @@ export default function App() {
         initialDraft={route.draft}
         patient={profile}
         clinicSessions={clinicSessions}
+        exerciseReferences={exerciseReferences}
         cloudEnabled={cloudEnabled}
         onPublish={handlePublish}
         onResetToDefault={handleResetPrescription}
@@ -324,17 +374,19 @@ export default function App() {
       <SessionScreen
         plan={referenceRecordingPlan(route.draft)}
         referenceAuthoring
-        onReferenceSaved={(referenceExercise) =>
+        onReferenceSaved={async (referenceExercise) => {
+          if (cloudEnabled) {
+            const saved = await publishExerciseReference(route.draft.therapist, referenceExercise);
+            setExerciseReferences((current) =>
+              current.some((item) => item.id === saved.id) ? current : [saved, ...current],
+            );
+          }
+
           go({
             name: "therapist",
-            draft: {
-              ...route.draft,
-              steps: route.draft.steps.map((step) =>
-                step.exerciseId === "custom" ? { ...step, referenceExercise } : step,
-              ),
-            },
-          })
-        }
+            draft: route.draft,
+          });
+        }}
         onFinish={() => go({ name: "therapist", draft: route.draft })}
         onExit={() => go({ name: "therapist", draft: route.draft })}
       />
@@ -345,6 +397,9 @@ export default function App() {
     return (
       <TherapistInboxScreen
         patient={profile}
+        clinicSessions={clinicSessions}
+        clinicCode={clinicCode}
+        cloudEnabled={cloudEnabled}
         onOpenChat={(patientName) => go({ name: "therapistChat", patientName })}
         onBack={() => go({ name: "therapist" })}
       />
@@ -352,7 +407,17 @@ export default function App() {
   }
 
   if (route.name === "therapistChat") {
-    return <ChatScreen peerName={route.patientName} onBack={() => go({ name: "inbox" })} />;
+    return (
+      <ChatScreen
+        key={route.patientName}
+        peerName={route.patientName}
+        patientName={route.patientName}
+        sender="therapist"
+        clinicCode={clinicCode}
+        cloudEnabled={cloudEnabled}
+        onBack={() => go({ name: "inbox" })}
+      />
+    );
   }
 
   if (route.name === "login") {
@@ -394,7 +459,7 @@ export default function App() {
       <SessionScreen
         key={sessionPlan.steps.map((step) => `${step.id}:${step.exerciseId}:${step.targetReps}`).join("|")}
         plan={sessionPlan}
-        onFinish={(outcome) => handleFinishSession(outcome, sessionPlan, readiness)}
+        onFinish={(outcome) => void handleFinishSession(outcome, sessionPlan, readiness)}
         onExit={() => go({ name: "home" })}
       />
     );
@@ -405,6 +470,8 @@ export default function App() {
       <SessionSummaryScreen
         record={route.record}
         profile={profile}
+        clinicCode={route.clinicCode}
+        therapistDelivery={route.therapistDelivery}
         onDone={() => go({ name: "home" })}
         onViewProgress={() => go({ name: "progress" })}
       />
@@ -441,7 +508,15 @@ export default function App() {
       page = <ProgressScreen profile={profile} />;
       break;
     case "chat":
-      page = <ChatScreen peerName={plan.therapist} />;
+      page = (
+        <ChatScreen
+          peerName={plan.therapist}
+          patientName={profile.name}
+          sender="patient"
+          clinicCode={clinicCode}
+          cloudEnabled={cloudEnabled}
+        />
+      );
       break;
     case "profile":
       page = (

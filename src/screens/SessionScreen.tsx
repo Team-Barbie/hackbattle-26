@@ -20,7 +20,7 @@ type Props = {
   onFinish: (outcome: SessionOutcome) => void;
   onExit: () => void;
   referenceAuthoring?: boolean;
-  onReferenceSaved?: (reference: ReferenceExercise) => void;
+  onReferenceSaved?: (reference: ReferenceExercise) => void | Promise<void>;
 };
 
 type BankedStep = StepResult;
@@ -164,9 +164,9 @@ export default function SessionScreen({
             onRestartPlan={handleRestart}
             className="card--span"
             allowReferenceAuthoring={referenceAuthoring}
-            onReferenceSaved={(reference) => {
+            onReferenceSaved={async (reference) => {
+              await onReferenceSaved?.(reference);
               session.stopCamera();
-              onReferenceSaved?.(reference);
             }}
           />
         </aside>
