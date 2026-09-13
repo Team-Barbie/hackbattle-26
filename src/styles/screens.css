@@ -349,6 +349,7 @@
   font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 700;
+  line-height: 1;
 }
 
 .exercise-tile__glyph.is-neutral {
@@ -435,6 +436,7 @@
   font-family: var(--font-mono);
   font-size: 0.74rem;
   font-weight: 700;
+  line-height: 1;
 }
 
 .tip {
@@ -571,6 +573,7 @@
   color: var(--accent-ink);
   font-size: 1.4rem;
   font-weight: 800;
+  line-height: 1;
 }
 
 .kv {
@@ -806,6 +809,7 @@
   color: var(--text);
   font-size: 1.1rem;
   font-weight: 700;
+  line-height: 1;
   transition: background var(--fast) var(--ease);
 }
 
@@ -975,6 +979,7 @@
   font-family: var(--font-mono);
   font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1;
 }
 
 .row__title {
