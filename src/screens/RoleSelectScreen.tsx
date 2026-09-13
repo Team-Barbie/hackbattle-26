@@ -5,10 +5,21 @@ export type Role = "patient" | "therapist";
 
 type Props = {
   cloudEnabled: boolean;
+  patientResume?: { name: string; therapist: string } | null;
+  therapistResume?: { title: string } | null;
   onSelectRole: (role: Role) => void;
+  onContinuePatient?: () => void;
+  onContinueTherapist?: () => void;
 };
 
-export default function RoleSelectScreen({ cloudEnabled, onSelectRole }: Props) {
+export default function RoleSelectScreen({
+  cloudEnabled,
+  patientResume,
+  therapistResume,
+  onSelectRole,
+  onContinuePatient,
+  onContinueTherapist,
+}: Props) {
   return (
     <div className="screen screen--centered">
       <div className="hero">
@@ -21,6 +32,21 @@ export default function RoleSelectScreen({ cloudEnabled, onSelectRole }: Props) 
           Camera-guided exercise sessions, prescribed by your therapist and coached rep by rep.
         </p>
       </div>
+
+      {(patientResume || therapistResume) && (
+        <div className="resume-list">
+          {patientResume && onContinuePatient && (
+            <button type="button" className="btn btn--block" onClick={onContinuePatient}>
+              Continue as {patientResume.name} · {patientResume.therapist}
+            </button>
+          )}
+          {therapistResume && onContinueTherapist && (
+            <button type="button" className="btn btn--block btn--ghost" onClick={onContinueTherapist}>
+              Continue in studio · {therapistResume.title}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="role-grid">
         <button type="button" className="role-card" onClick={() => onSelectRole("patient")}>

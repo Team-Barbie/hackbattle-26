@@ -76,7 +76,7 @@ export default function ChatScreen({
 
     void loadThread();
 
-    let unsubscribe = () => undefined;
+    let unsubscribe: () => void = () => undefined;
 
     try {
       unsubscribe = subscribeClinic(

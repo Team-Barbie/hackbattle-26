@@ -41,13 +41,23 @@ import {
   type SessionRecord,
 } from "./state/patientProfile";
 import {
+  clearPatientPlan,
   consumeSharedPlanFromUrl,
+  loadPatientPlan,
   loadStoredPrescription,
   publishPrescription,
   resetPrescription,
+  savePatientPlan,
   saveStoredPrescription,
   type StoredPrescription,
 } from "./state/prescriptionStore";
+import {
+  clearActiveRole,
+  loadActiveRole,
+  routeForSession,
+  saveActiveRole,
+  type ActiveRole,
+} from "./state/sessionRole";
 
 type Route =
   | { name: "role" }
@@ -70,6 +80,8 @@ type Route =
       clinicCode?: string;
       therapistDelivery?: "sent" | "skipped" | "failed";
     };
+
+const THERAPIST_ROUTES = new Set<Route["name"]>(["therapist", "inbox", "therapistChat", "therapist-record"]);
 
 const TAB_FOR_ROUTE: Partial<Record<Route["name"], PatientTab>> = {
   home: "home",
@@ -116,7 +128,7 @@ function applyRemotePlan(
   next: StoredPrescription,
   routeName: Route["name"],
   local: StoredPrescription,
-  setStored: (stored: StoredPrescription) => void,
+  persist: (stored: StoredPrescription) => void,
 ) {
   if (routeName === "session" || routeName === "readiness" || routeName === "therapist-record") {
     return;
@@ -126,28 +138,58 @@ function applyRemotePlan(
     return;
   }
 
-  setStored(saveStoredPrescription(next));
+  persist(next);
+}
+
+function readPatientPlan(profile: PatientProfile | null): StoredPrescription | null {
+  const existing = loadPatientPlan();
+
+  if (existing) {
+    return existing;
+  }
+
+  if (!profile?.clinicCode) {
+    return null;
+  }
+
+  const studio = loadStoredPrescription();
+
+  if (normalizeClinicCode(studio.plan.accessCode) === profile.clinicCode) {
+    return savePatientPlan(studio);
+  }
+
+  return null;
 }
 
 export default function App() {
   const cloudEnabled = isClinicCloudEnabled();
   const [profile, setProfile] = useState<PatientProfile | null>(() => loadPatientProfile());
-  const [stored, setStored] = useState<StoredPrescription>(() =>
+  const [therapistStored, setTherapistStored] = useState<StoredPrescription>(() =>
     consumeSharedPlanFromUrl() ?? loadStoredPrescription(),
+  );
+  const [patientStored, setPatientStored] = useState<StoredPrescription | null>(() =>
+    readPatientPlan(loadPatientProfile()),
   );
   const [clinicSessions, setClinicSessions] = useState<ClinicSession[]>([]);
   const [exerciseReferences, setExerciseReferences] = useState<SharedExerciseReference[]>([]);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [route, setRoute] = useState<Route>(() =>
-    loadPatientProfile() ? { name: "home" } : { name: "role" },
-  );
+  const [route, setRoute] = useState<Route>(() => ({
+    name: routeForSession(loadActiveRole(), Boolean(loadPatientProfile())),
+  }));
   const routeRef = useRef(route);
-  const storedRef = useRef(stored);
+  const storedRef = useRef<StoredPrescription>(therapistStored);
   routeRef.current = route;
+
+  const therapistView = THERAPIST_ROUTES.has(route.name);
+  const stored = therapistView ? therapistStored : (patientStored ?? therapistStored);
   storedRef.current = stored;
 
   const plan = stored.plan;
-  const clinicCode = normalizeClinicCode(profile?.clinicCode ?? stored.plan.accessCode);
+  const clinicCode = normalizeClinicCode(
+    therapistView
+      ? therapistStored.plan.accessCode
+      : profile?.clinicCode ?? patientStored?.plan.accessCode ?? therapistStored.plan.accessCode,
+  );
 
   const go = useCallback((next: Route) => {
     setRoute(next);
@@ -166,7 +208,13 @@ export default function App() {
       try {
         const remote = await fetchClinicPlan(clinicCode);
         if (!cancelled && remote) {
-          applyRemotePlan(remote, routeRef.current.name, storedRef.current, setStored);
+          applyRemotePlan(remote, routeRef.current.name, storedRef.current, (next) => {
+            if (THERAPIST_ROUTES.has(routeRef.current.name)) {
+              setTherapistStored(saveStoredPrescription(next));
+            } else {
+              setPatientStored(savePatientPlan(next));
+            }
+          });
         }
       } catch {
         // Stay on the last local cache if the clinic is unreachable.
@@ -186,7 +234,13 @@ export default function App() {
 
     const unsubscribe = subscribeClinic(clinicCode, {
       onPlan(next) {
-        applyRemotePlan(next, routeRef.current.name, storedRef.current, setStored);
+        applyRemotePlan(next, routeRef.current.name, storedRef.current, (plan) => {
+          if (THERAPIST_ROUTES.has(routeRef.current.name)) {
+            setTherapistStored(saveStoredPrescription(plan));
+          } else {
+            setPatientStored(savePatientPlan(plan));
+          }
+        });
       },
       onSession(session) {
         setClinicSessions((current) => {
@@ -239,8 +293,14 @@ export default function App() {
     };
   }, [cloudEnabled]);
 
-  function handleSelectRole(role: Role) {
-    if (role === "therapist") {
+  function rememberRole(next: ActiveRole) {
+    saveActiveRole(next);
+  }
+
+  function handleSelectRole(next: Role) {
+    rememberRole(next);
+
+    if (next === "therapist") {
       go({ name: "therapist" });
       return;
     }
@@ -266,7 +326,8 @@ export default function App() {
         }
 
         setLoginError(null);
-        setStored(saveStoredPrescription(remote));
+        rememberRole("patient");
+        setPatientStored(savePatientPlan(remote));
         setProfile(createPatientProfile(name, normalizeClinicCode(trimmedCode)));
         go({ name: "home" });
       } catch (error) {
@@ -282,13 +343,18 @@ export default function App() {
     }
 
     setLoginError(null);
+    rememberRole("patient");
+    setPatientStored(savePatientPlan(stored));
     setProfile(createPatientProfile(name, plan.accessCode));
     go({ name: "home" });
   }
 
   function handleSwitchUser() {
     clearPatientProfile();
+    clearPatientPlan();
+    clearActiveRole();
     setProfile(null);
+    setPatientStored(null);
     go({ name: "role" });
   }
 
@@ -337,7 +403,7 @@ export default function App() {
 
   async function handlePublish(nextPlan: Prescription) {
     const local = publishPrescription(nextPlan);
-    setStored(local);
+    setTherapistStored(local);
 
     if (!cloudEnabled) {
       return;
@@ -347,7 +413,7 @@ export default function App() {
   }
 
   function handleResetPrescription() {
-    setStored(resetPrescription());
+    setTherapistStored(resetPrescription());
   }
 
   if (route.name === "therapist") {
@@ -361,7 +427,10 @@ export default function App() {
         cloudEnabled={cloudEnabled}
         onPublish={handlePublish}
         onResetToDefault={handleResetPrescription}
-        onBack={() => go({ name: "role" })}
+        onBack={() => {
+          clearActiveRole();
+          go({ name: "role" });
+        }}
         onPreviewAsPatient={() => go(profile ? { name: "home" } : { name: "login" })}
         onOpenInbox={() => go({ name: "inbox" })}
         onRecordCustomExercise={(draft) => go({ name: "therapist-record", draft })}
@@ -434,11 +503,13 @@ export default function App() {
   if (route.name === "login") {
     return (
       <LoginScreen
-        therapistName={plan.therapist}
+        therapistName={patientStored?.plan.therapist ?? plan.therapist}
         cloudEnabled={cloudEnabled}
         onLogin={handleLogin}
-        requiresCode={cloudEnabled || Boolean(plan.accessCode)}
+        requiresCode={cloudEnabled || Boolean(patientStored?.plan.accessCode ?? plan.accessCode)}
         loginError={loginError}
+        initialName={profile?.name ?? ""}
+        initialCode={profile?.clinicCode ?? patientStored?.plan.accessCode ?? ""}
         onBack={() => {
           setLoginError(null);
           go({ name: "role" });
@@ -448,7 +519,30 @@ export default function App() {
   }
 
   if (route.name === "role" || !profile) {
-    return <RoleSelectScreen cloudEnabled={cloudEnabled} onSelectRole={handleSelectRole} />;
+    return (
+      <RoleSelectScreen
+        cloudEnabled={cloudEnabled}
+        patientResume={
+          profile
+            ? { name: profile.name, therapist: patientStored?.plan.therapist ?? plan.therapist }
+            : null
+        }
+        therapistResume={
+          therapistStored.publishedAt || therapistStored.plan.accessCode
+            ? { title: therapistStored.plan.title }
+            : null
+        }
+        onSelectRole={handleSelectRole}
+        onContinuePatient={() => {
+          rememberRole("patient");
+          go({ name: "home" });
+        }}
+        onContinueTherapist={() => {
+          rememberRole("therapist");
+          go({ name: "therapist" });
+        }}
+      />
+    );
   }
 
   if (route.name === "readiness") {

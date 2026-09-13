@@ -14,6 +14,7 @@ export type StoredPrescription = {
 };
 
 const STORAGE_KEY = "physioloop.prescription";
+const PATIENT_PLAN_KEY = "physioloop.patient-plan";
 const SHARE_PARAM = "plan";
 
 function sanitiseAccessCode(value: unknown): string | undefined {
@@ -100,19 +101,7 @@ export function loadStoredPrescription(): StoredPrescription {
 }
 
 export function saveStoredPrescription(stored: StoredPrescription): StoredPrescription {
-  const sanitised = sanitisePrescription(stored.plan) ?? clonePrescription(DEFAULT_PRESCRIPTION);
-  const next: StoredPrescription = {
-    plan: sanitised,
-    publishedAt: stored.publishedAt,
-  };
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // Still hand the plan to the running app even if it can't persist.
-  }
-
-  return next;
+  return persistPlan(STORAGE_KEY, stored);
 }
 
 export function publishPrescription(plan: Prescription): StoredPrescription {
@@ -120,6 +109,62 @@ export function publishPrescription(plan: Prescription): StoredPrescription {
     plan,
     publishedAt: new Date().toISOString(),
   });
+}
+
+function persistPlan(key: string, stored: StoredPrescription): StoredPrescription {
+  const sanitised = sanitisePrescription(stored.plan) ?? clonePrescription(DEFAULT_PRESCRIPTION);
+  const next: StoredPrescription = {
+    plan: sanitised,
+    publishedAt: stored.publishedAt,
+  };
+
+  try {
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {
+    // Still hand the plan to the running app even if it can't persist.
+  }
+
+  return next;
+}
+
+function readPlan(key: string): StoredPrescription | null {
+  try {
+    const raw = localStorage.getItem(key);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<StoredPrescription>;
+    const plan = sanitisePrescription(parsed.plan);
+
+    if (!plan) {
+      return null;
+    }
+
+    return {
+      plan,
+      publishedAt: typeof parsed.publishedAt === "string" ? parsed.publishedAt : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function loadPatientPlan(): StoredPrescription | null {
+  return readPlan(PATIENT_PLAN_KEY);
+}
+
+export function savePatientPlan(stored: StoredPrescription): StoredPrescription {
+  return persistPlan(PATIENT_PLAN_KEY, stored);
+}
+
+export function clearPatientPlan() {
+  try {
+    localStorage.removeItem(PATIENT_PLAN_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 export function resetPrescription(): StoredPrescription {
