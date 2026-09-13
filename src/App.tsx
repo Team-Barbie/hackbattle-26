@@ -315,6 +315,7 @@ export default function App() {
       readiness,
       durationMs: outcome.durationMs,
       steps: outcome.steps,
+      earlyExitReason: outcome.earlyExitReason,
     });
     const latest = updated.sessions[updated.sessions.length - 1];
     const sessionClinic = normalizeClinicCode(updated.clinicCode ?? sessionPlan.accessCode);

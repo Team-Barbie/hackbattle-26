@@ -69,9 +69,11 @@ export default function SessionSummaryScreen({
           </p>
           {finishedEarly && (
             <p className="lede" style={{ marginTop: 4 }}>
-              {stoppedAt
-                ? `You ended during ${stoppedAt.exerciseName ?? exerciseName(stoppedAt.exerciseId)} — ${stoppedAt.reps}/${stoppedAt.targetReps} reps done.`
-                : "You ended before completing today's plan."}
+              {record.earlyExitReason
+                ? `Reason: ${record.earlyExitReason}`
+                : stoppedAt
+                  ? `You ended during ${stoppedAt.exerciseName ?? exerciseName(stoppedAt.exerciseId)} — ${stoppedAt.reps}/${stoppedAt.targetReps} reps done.`
+                  : "You ended before completing today's plan."}
             </p>
           )}
           {therapistDelivery === "sent" && (

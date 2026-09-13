@@ -20,10 +20,10 @@ function buildPieces(): Piece[] {
       pieces.push({
         side,
         color: i % 2 === 0 ? "black" : "white",
-        offset: Math.random() * 16,
+        offset: Math.random() * 3,
         delay: Math.random() * 0.5,
         duration: 2.2 + Math.random() * 1.4,
-        drift: (side === "left" ? 1 : -1) * (40 + Math.random() * 80),
+        drift: (Math.random() - 0.5) * 40,
         rotate: 180 + Math.random() * 540,
       });
     }

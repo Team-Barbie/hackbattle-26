@@ -24,6 +24,8 @@ export type SessionRecord = {
   readiness: number | null;
   durationMs: number;
   steps: StepResult[];
+  /** Patient-given reason for stopping before the plan was complete, or null if fully completed / skipped. */
+  earlyExitReason: string | null;
 };
 
 export type PatientProfile = {
@@ -92,6 +94,10 @@ export function sanitiseSessionRecord(raw: unknown, fallbackId?: string): Sessio
     readiness: typeof readiness === "number" && Number.isFinite(readiness) ? readiness : null,
     durationMs: Number.isFinite(Number(session.durationMs)) ? Number(session.durationMs) : 0,
     steps,
+    earlyExitReason:
+      typeof session.earlyExitReason === "string" && session.earlyExitReason.trim()
+        ? session.earlyExitReason.trim().slice(0, 120)
+        : null,
   };
 }
 

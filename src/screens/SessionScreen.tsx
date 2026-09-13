@@ -13,7 +13,15 @@ import type { StepResult } from "../state/patientProfile";
 export type SessionOutcome = {
   steps: StepResult[];
   durationMs: number;
+  earlyExitReason: string | null;
 };
+
+const EARLY_EXIT_REASONS = [
+  "Pain or discomfort",
+  "Ran out of time",
+  "Feeling tired",
+  "Technical issue",
+];
 
 type Props = {
   plan: Prescription;
@@ -36,6 +44,7 @@ export default function SessionScreen({
   const startedAtRef = useRef(performance.now());
   const [repsByStep, setRepsByStep] = useState<BankedStep[]>([]);
   const [leavePrompt, setLeavePrompt] = useState(false);
+  const [reasonPrompt, setReasonPrompt] = useState(false);
 
   useEffect(() => {
     setRepsByStep((current) => {
@@ -80,7 +89,7 @@ export default function SessionScreen({
   }, [session]);
 
   const buildOutcome = useCallback(
-    (): SessionOutcome => ({
+    (earlyExitReason: string | null = null): SessionOutcome => ({
       steps: session.plan.steps.map((step, index) => {
         const banked = repsByStep[index];
         const reps = Math.min(step.targetReps, banked?.reps ?? 0);
@@ -96,6 +105,7 @@ export default function SessionScreen({
         };
       }),
       durationMs: performance.now() - startedAtRef.current,
+      earlyExitReason,
     }),
     [repsByStep, session.plan.steps],
   );
@@ -122,13 +132,24 @@ export default function SessionScreen({
     leaveWithoutSaving();
   }
 
-  function handleFinish() {
+  function handleFinish(earlyExitReason: string | null = null) {
     session.stopCamera();
-    onFinish(buildOutcome());
+    onFinish(buildOutcome(earlyExitReason));
+  }
+
+  const { planComplete } = session;
+
+  function requestFinish() {
+    if (planComplete) {
+      handleFinish();
+      return;
+    }
+
+    setLeavePrompt(false);
+    setReasonPrompt(true);
   }
 
   const bankedReps = repsByStep.reduce((total, step) => total + (step?.reps ?? 0), 0);
-  const { planComplete } = session;
 
   return (
     <div className="session">
@@ -196,8 +217,30 @@ export default function SessionScreen({
               <button type="button" className="btn btn--outline" onClick={leaveWithoutSaving}>
                 Discard
               </button>
-              <button type="button" className="btn" onClick={handleFinish}>
+              <button type="button" className="btn" onClick={requestFinish}>
                 Save and leave
+              </button>
+            </div>
+          </>
+        ) : reasonPrompt ? (
+          <>
+            <div className="session__footer-copy">
+              <strong>Why are you stopping early?</strong>
+              <span>This gets saved with your session so your therapist has the context.</span>
+            </div>
+            <div className="session__footer-actions">
+              {EARLY_EXIT_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  className="btn btn--outline"
+                  onClick={() => handleFinish(reason)}
+                >
+                  {reason}
+                </button>
+              ))}
+              <button type="button" className="btn btn--ghost" onClick={() => handleFinish()}>
+                Skip
               </button>
             </div>
           </>
@@ -214,7 +257,7 @@ export default function SessionScreen({
             <button
               type="button"
               className={`btn btn--lg${planComplete ? "" : " btn--ghost"}`}
-              onClick={handleFinish}
+              onClick={requestFinish}
             >
               {planComplete ? "Finish session" : "Finish early"}
             </button>
