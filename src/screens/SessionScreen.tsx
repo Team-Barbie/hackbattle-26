@@ -32,7 +32,7 @@ export default function SessionScreen({
   referenceAuthoring = false,
   onReferenceSaved,
 }: Props) {
-  const session = useExerciseSession({ plan });
+  const session = useExerciseSession({ plan, loadStoredReference: !referenceAuthoring });
   const startedAtRef = useRef(performance.now());
   const [repsByStep, setRepsByStep] = useState<BankedStep[]>([]);
   const [leavePrompt, setLeavePrompt] = useState(false);

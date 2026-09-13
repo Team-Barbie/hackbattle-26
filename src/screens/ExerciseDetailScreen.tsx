@@ -1,8 +1,9 @@
 import ExerciseDemo from "../components/ExerciseDemo";
 import Icon from "../components/Icon";
 import { exerciseArea, exerciseFraming } from "../content/exerciseMeta";
-import { exerciseGuides } from "../coaching/exerciseGuide";
+import { guideForExercise } from "../coaching/exerciseGuide";
 import type { ExerciseId } from "../exercises/exerciseCatalog";
+import { motionProfileFor, type ReferenceExercise } from "../exercises/custom/referenceExercise";
 import { planStepName, type Prescription } from "../exercises/prescription";
 
 type Props = {
@@ -10,7 +11,8 @@ type Props = {
   plan: Prescription;
   onBack: () => void;
   onStartSession: () => void;
-  onPractice: (exerciseId: ExerciseId) => void;
+  onPractice: (exerciseId: ExerciseId, referenceExercise?: ReferenceExercise) => void;
+  referenceExercise?: ReferenceExercise;
 };
 
 export default function ExerciseDetailScreen({
@@ -19,10 +21,19 @@ export default function ExerciseDetailScreen({
   onBack,
   onStartSession,
   onPractice,
+  referenceExercise,
 }: Props) {
-  const guide = exerciseGuides[exerciseId];
-  const step = plan.steps.find((item) => item.exerciseId === exerciseId);
+  const guide = guideForExercise(exerciseId, referenceExercise);
+  const step = plan.steps.find((item) =>
+    exerciseId === "custom"
+      ? Boolean(item.referenceExercise && referenceExercise) &&
+        (item.referenceExercise?.id && referenceExercise?.id
+          ? item.referenceExercise.id === referenceExercise.id
+          : item.referenceExercise?.recordedAt === referenceExercise?.recordedAt)
+      : item.exerciseId === exerciseId,
+  );
   const position = step ? plan.steps.indexOf(step) + 1 : null;
+  const motionProfile = referenceExercise ? motionProfileFor(referenceExercise) : null;
 
   return (
     <div className="screen page">
@@ -45,7 +56,22 @@ export default function ExerciseDetailScreen({
         <p className="lede">{guide.summary}</p>
       </header>
 
-      <ExerciseDemo exerciseId={exerciseId} label={exerciseFraming(exerciseId)} />
+      <ExerciseDemo exerciseId={exerciseId} label={exerciseFraming(exerciseId)} reference={referenceExercise} />
+
+      {motionProfile && (
+        <section className="card">
+          <p className="card__title">Movement detected</p>
+          <p className="lede">{motionProfile.summary}</p>
+          <div className="readouts" style={{ marginTop: 16 }}>
+            {[motionProfile.primary, ...motionProfile.supporting].map((motion) => (
+              <dl key={motion.key} className="readout">
+                <dt>{motion.label}</dt>
+                <dd>{motion.minDegrees}–{motion.maxDegrees}°</dd>
+              </dl>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="card">
         <p className="card__title">How to do it</p>
@@ -64,7 +90,7 @@ export default function ExerciseDetailScreen({
         <button
           type="button"
           className="btn btn--ghost btn--lg"
-          onClick={() => onPractice(exerciseId)}
+          onClick={() => onPractice(exerciseId, referenceExercise)}
         >
           Practice only this
         </button>

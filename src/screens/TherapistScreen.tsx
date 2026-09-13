@@ -5,7 +5,7 @@ import ProgressRing from "../components/ProgressRing";
 import { exerciseGuides } from "../coaching/exerciseGuide";
 import { formatDay, formatDuration, shortExerciseName } from "../content/exerciseMeta";
 import { EXERCISES, isExerciseId, type ExerciseId } from "../exercises/exerciseCatalog";
-import { loadReferenceExercise } from "../exercises/custom/referenceExercise";
+import { loadReferenceExercise, loadReferenceExercises, type ReferenceExercise } from "../exercises/custom/referenceExercise";
 import {
   DEFAULT_PRESCRIPTION,
   clonePrescription,
@@ -87,6 +87,7 @@ export default function TherapistScreen({
     loadReferenceExercise() ??
     draft.steps.find((step) => step.exerciseId === "custom")?.referenceExercise ??
     null;
+  const recordedExercises = loadReferenceExercises();
   const exerciseOptions = EXERCISES.filter((exercise) => exercise.id !== "custom");
   const dirty =
     !samePlan(draft, stored.plan) || (draft.accessCode ?? "") !== (stored.plan.accessCode ?? "");
@@ -132,9 +133,9 @@ export default function TherapistScreen({
     touch();
   }
 
-  function addStep(exerciseId: ExerciseId, sharedReference?: SharedExerciseReference) {
+  function addStep(exerciseId: ExerciseId, selectedReference?: ReferenceExercise) {
     const reference =
-      exerciseId === "custom" ? sharedReference?.reference ?? customExercise ?? undefined : undefined;
+      exerciseId === "custom" ? selectedReference ?? customExercise ?? undefined : undefined;
     setDraft((current) => ({
       ...current,
       steps: [...current.steps, createPlanStep(exerciseId, 8, reference)],
@@ -286,8 +287,8 @@ export default function TherapistScreen({
                           {exercise.name}
                         </option>
                       ))}
-                      {customExercise && (
-                        <option value="custom">{customExercise.name}</option>
+                      {step.exerciseId === "custom" && (
+                        <option value="custom">{step.referenceExercise?.name ?? "Recorded exercise"}</option>
                       )}
                     </select>
                   </label>
@@ -364,17 +365,18 @@ export default function TherapistScreen({
                   {exercise.name}
                 </button>
               ))}
-              {customExercise && (
+              {recordedExercises.map((reference) => (
                 <button
                   type="button"
+                  key={reference.id ?? reference.recordedAt}
                   className="picker__chip"
-                  onClick={() => addStep("custom")}
-                  title="Therapist-recorded movement"
+                  onClick={() => addStep("custom", reference)}
+                  title={reference.motionProfile?.summary ?? "Therapist-recorded movement"}
                 >
                   <Icon name="plus" />
-                  {customExercise.name}
+                  {reference.name}
                 </button>
-              )}
+              ))}
               <button
                 type="button"
                 className="picker__chip"
@@ -398,7 +400,7 @@ export default function TherapistScreen({
                     type="button"
                     key={item.id}
                     className="picker__chip"
-                    onClick={() => addStep("custom", item)}
+                    onClick={() => addStep("custom", item.reference)}
                     title={`Recorded by ${item.therapist}`}
                   >
                     <Icon name="plus" />

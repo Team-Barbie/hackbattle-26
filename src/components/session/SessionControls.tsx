@@ -21,6 +21,8 @@ export default function SessionControls({
   const { isLive, isBusy, exerciseId, recordingReference } = session;
   const isCustom = exerciseId === "custom";
   const [referenceName, setReferenceName] = useState("");
+  const [optionalInstruction, setOptionalInstruction] = useState("");
+  const [optionalCue, setOptionalCue] = useState("");
   const [savingReference, setSavingReference] = useState(false);
   const [referenceSaveError, setReferenceSaveError] = useState<string | null>(null);
   const [referenceAwaitingRetry, setReferenceAwaitingRetry] = useState<ReferenceExercise | null>(null);
@@ -44,7 +46,10 @@ export default function SessionControls({
 
   async function handleSaveReference(event: FormEvent) {
     event.preventDefault();
-    const saved = session.savePendingReference(referenceName);
+    const saved = session.savePendingReference(referenceName, {
+      instruction: optionalInstruction,
+      cue: optionalCue,
+    });
 
     if (saved) {
       await saveToSharedLibrary(saved);
@@ -89,6 +94,15 @@ export default function SessionControls({
 
         {isCustom && allowReferenceAuthoring && session.pendingReference && (
           <form className="reference-name" onSubmit={handleSaveReference}>
+            <div className="notice">
+              <strong>Movement detected automatically</strong>
+              <p>{session.pendingReference.motionProfile?.summary}</p>
+              <p>
+                Main joint: {session.pendingReference.motionProfile?.primary.label} ·{" "}
+                {session.pendingReference.motionProfile?.primary.minDegrees}–
+                {session.pendingReference.motionProfile?.primary.maxDegrees}°
+              </p>
+            </div>
             <label className="field">
               <span>Exercise name</span>
               <input
@@ -100,6 +114,28 @@ export default function SessionControls({
                 required
               />
             </label>
+            <details className="notice">
+              <summary>Optional: customise the generated guidance</summary>
+              <label className="field" style={{ marginTop: 12 }}>
+                <span>Client instruction</span>
+                <textarea
+                  value={optionalInstruction}
+                  onChange={(event) => setOptionalInstruction(event.currentTarget.value)}
+                  placeholder="Leave blank to use the detected joint action"
+                  maxLength={240}
+                  rows={3}
+                />
+              </label>
+              <label className="field">
+                <span>Short coaching cue</span>
+                <input
+                  value={optionalCue}
+                  onChange={(event) => setOptionalCue(event.currentTarget.value)}
+                  placeholder="Leave blank to generate automatically"
+                  maxLength={120}
+                />
+              </label>
+            </details>
             <button
               type="submit"
               className="btn btn--sm"

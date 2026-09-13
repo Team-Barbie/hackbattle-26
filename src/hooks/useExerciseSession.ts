@@ -12,12 +12,15 @@ import { mostCommonIssue, rankIssues } from "../coaching/issueRanking";
 import { createMotionCounter } from "../exercises/motionCounter";
 import { usesUpperBody } from "../exercises/exerciseCatalog";
 import {
+  analyseRecordedMotion,
   clearReferenceExercise,
   findReferenceMatch,
   loadReferenceExercise,
   poseFeatureFrame,
+  poseDemoFrame,
   saveReferenceExercise,
   type PoseFeatureFrame,
+  type DemoFrame,
   type ReferenceExercise,
 } from "../exercises/custom/referenceExercise";
 import {
@@ -177,6 +180,7 @@ function thighReadingsFromPose(pose: DetectedPose | null) {
 
 export type ExerciseSessionOptions = {
   plan?: Prescription;
+  loadStoredReference?: boolean;
 };
 
 export function useExerciseSession(options: ExerciseSessionOptions = {}) {
@@ -208,6 +212,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   const suppressCuesUntilRef = useRef(0);
   const recordingReferenceRef = useRef(false);
   const recordedFramesRef = useRef<PoseFeatureFrame[]>([]);
+  const recordedDemoFramesRef = useRef<DemoFrame[]>([]);
   const lastReferenceCaptureAtRef = useRef(0);
   const referenceProgressRef = useRef(0);
   const awaitingReferenceRestartRef = useRef(false);
@@ -227,7 +232,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   );
   const [stepIndex, setStepIndex] = useState(0);
   const [referenceExercise, setReferenceExercise] = useState<ReferenceExercise | null>(() =>
-    options.plan?.steps[0]?.referenceExercise ?? loadReferenceExercise(),
+    options.plan?.steps[0]?.referenceExercise ?? (options.loadStoredReference === false ? null : loadReferenceExercise()),
   );
   const referenceExerciseRef = useRef(referenceExercise);
   const [pendingReference, setPendingReference] = useState<ReferenceExercise | null>(null);
@@ -261,10 +266,10 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
       return;
     }
 
-    const reference = currentStep.referenceExercise ?? loadReferenceExercise();
+    const reference = currentStep.referenceExercise ?? (options.loadStoredReference === false ? null : loadReferenceExercise());
     referenceExerciseRef.current = reference;
     setReferenceExercise(reference);
-  }, [currentStep]);
+  }, [currentStep, options.loadStoredReference]);
 
   const stopTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -350,6 +355,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     lastCustomScoreRef.current = null;
     recordingReferenceRef.current = false;
     recordedFramesRef.current = [];
+    recordedDemoFramesRef.current = [];
     lastReferenceCaptureAtRef.current = 0;
     movementStateRef.current = null;
     ascentLockedRef.current = false;
@@ -425,6 +431,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
 
     resetSession();
     recordedFramesRef.current = [];
+    recordedDemoFramesRef.current = [];
     lastReferenceCaptureAtRef.current = 0;
     recordingReferenceRef.current = true;
     setRecordingReference(true);
@@ -446,12 +453,16 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
       return;
     }
 
+    const recordedAt = new Date().toISOString();
     const reference: ReferenceExercise = {
       version: 1,
+      id: `recorded-${recordedAt.replace(/\D/g, "").slice(0, 17)}-${Math.random().toString(36).slice(2, 7)}`,
       name: "",
-      recordedAt: new Date().toISOString(),
+      recordedAt,
       durationMs: (frames.length - 1) * REFERENCE_CAPTURE_INTERVAL_MS,
-      frames: frames.map((frame) => [...frame]),
+      frames: frames.map((frame) => ({ ...frame })),
+      demoFrames: recordedDemoFramesRef.current.map((frame) => ({ ...frame })),
+      motionProfile: analyseRecordedMotion(frames),
     };
 
     setPendingReference(reference);
@@ -459,7 +470,10 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     setMovementState("ADJUST");
   }, []);
 
-  const savePendingReference = useCallback((name: string): ReferenceExercise | null => {
+  const savePendingReference = useCallback((
+    name: string,
+    overrides?: { instruction?: string; cue?: string },
+  ): ReferenceExercise | null => {
     const cleanName = name.trim().slice(0, 60);
 
     if (!pendingReference || !cleanName) {
@@ -467,7 +481,13 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
       return null;
     }
 
-    const reference = { ...pendingReference, name: cleanName };
+    const instruction = overrides?.instruction?.trim().slice(0, 240);
+    const cue = overrides?.cue?.trim().slice(0, 120);
+    const reference = {
+      ...pendingReference,
+      name: cleanName,
+      ...(instruction || cue ? { overrides: { ...(instruction ? { instruction } : {}), ...(cue ? { cue } : {}) } } : {}),
+    };
 
     try {
       saveReferenceExercise(reference);
@@ -494,11 +514,12 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
   }, [pendingReference, stepIndex]);
 
   const clearReference = useCallback(() => {
-    clearReferenceExercise();
+    clearReferenceExercise(referenceExerciseRef.current?.id);
     referenceExerciseRef.current = null;
     setReferenceExercise(null);
     setPendingReference(null);
     recordedFramesRef.current = [];
+    recordedDemoFramesRef.current = [];
     referenceProgressRef.current = 0;
     awaitingReferenceRestartRef.current = false;
     customRepCountRef.current = 0;
@@ -689,6 +710,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
           state = detectBicepCurlState(metric, previous);
         } else if (exerciseTracking && exerciseId === "custom") {
           const feature = poseFeatureFrame(analysisPose);
+          const demoFrame = poseDemoFrame(analysisPose);
           const reference = referenceExerciseRef.current;
 
           if (recordingReferenceRef.current) {
@@ -700,6 +722,7 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
               recordedFramesRef.current.length < MAX_REFERENCE_FRAMES
             ) {
               recordedFramesRef.current.push(feature);
+              if (demoFrame) recordedDemoFramesRef.current.push(demoFrame);
               lastReferenceCaptureAtRef.current = now;
               setReferenceFrameCount(recordedFramesRef.current.length);
             }
@@ -939,6 +962,8 @@ export function useExerciseSession(options: ExerciseSessionOptions = {}) {
     nextExerciseName: nextStep ? planStepName(nextStep) : null,
     sessionComplete: planComplete,
     primaryIssue: lastIssue,
+    referenceExercise,
+    referenceProgress,
   });
 
   useEffect(() => {

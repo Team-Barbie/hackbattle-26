@@ -3,11 +3,12 @@ import { exerciseArea, exerciseFraming, exerciseMonogram } from "../content/exer
 import { exerciseGuides } from "../coaching/exerciseGuide";
 import { EXERCISES, type ExerciseId } from "../exercises/exerciseCatalog";
 import { planStepName, type Prescription } from "../exercises/prescription";
+import type { ReferenceExercise } from "../exercises/custom/referenceExercise";
 import { totalPrescribedReps } from "../state/prescriptionStore";
 
 type Props = {
   plan: Prescription;
-  onOpenExercise: (exerciseId: ExerciseId) => void;
+  onOpenExercise: (exerciseId: ExerciseId, referenceExercise?: ReferenceExercise) => void;
   onStartSession: () => void;
 };
 
@@ -38,7 +39,7 @@ export default function ProgramScreen({ plan, onOpenExercise, onStartSession }: 
               <button
                 type="button"
                 className="exercise-tile"
-                onClick={() => onOpenExercise(step.exerciseId)}
+                onClick={() => onOpenExercise(step.exerciseId, step.referenceExercise)}
               >
                 <span className="exercise-tile__glyph">{exerciseMonogram(step.exerciseId)}</span>
                 <span>

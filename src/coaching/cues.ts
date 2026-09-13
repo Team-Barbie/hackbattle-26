@@ -1,4 +1,5 @@
 import type { ExerciseId } from "../exercises/exerciseCatalog";
+import type { ReferenceExercise } from "../exercises/custom/referenceExercise";
 import type { FormIssue } from "../exercises/formIssues";
 import { correctionFor, issueLabel } from "./feedback";
 
@@ -22,6 +23,8 @@ export type CueInput = {
   nextExerciseName?: string | null;
   sessionComplete?: boolean;
   primaryIssue?: FormIssue | null;
+  referenceExercise?: ReferenceExercise | null;
+  referenceProgress?: number;
 };
 
 const WAIT_IN_FRAME: Record<ExerciseId, Cue> = {
@@ -86,6 +89,8 @@ export function nextCue({
   nextExerciseName = null,
   sessionComplete = false,
   primaryIssue = null,
+  referenceExercise = null,
+  referenceProgress = 0,
 }: CueInput): Cue {
   if (!tracking) {
     return WAIT_IN_FRAME[exerciseId];
@@ -224,16 +229,20 @@ export function nextCue({
     }
 
     if (state === "MATCHED") {
+      const generated = referenceProgress >= 55
+        ? referenceExercise?.motionProfile?.cues.return
+        : referenceExercise?.motionProfile?.cues.perform;
       return {
-        headline: "Good match",
-        detail: "Keep following the recorded movement at a controlled pace.",
+        headline: referenceExercise?.overrides?.cue ?? generated?.headline ?? "Good match",
+        detail: generated?.detail ?? "Keep following the recorded movement at a controlled pace.",
         tone: "up",
       };
     }
 
+    const correction = referenceExercise?.motionProfile?.cues.adjust;
     return {
-      headline: "Follow the reference",
-      detail: "Adjust your joint positions to improve the live match score.",
+      headline: correction?.headline ?? "Follow the reference",
+      detail: correction?.detail ?? "Adjust your joint positions to improve the live match score.",
       tone: "down",
     };
   }

@@ -1,4 +1,5 @@
 import type { ExerciseId } from "../exercises/exerciseCatalog";
+import { motionProfileFor, type ReferenceExercise } from "../exercises/custom/referenceExercise";
 
 export type ExerciseGuide = {
   name: string;
@@ -83,3 +84,26 @@ export const exerciseGuides: Record<ExerciseId, ExerciseGuide> = {
     cameraTip: "Keep the same camera position and orientation for recording and practice.",
   },
 };
+
+export function guideForExercise(
+  exerciseId: ExerciseId,
+  reference?: ReferenceExercise,
+): ExerciseGuide {
+  if (exerciseId !== "custom" || !reference) return exerciseGuides[exerciseId];
+  const { primary, supporting, summary } = motionProfileFor(reference);
+  return {
+    name: reference.name,
+    summary,
+    steps: [
+      `Match the recorded starting position with your ${primary.label} near ${primary.startDegrees}°.`,
+      ...(reference.overrides?.instruction ? [reference.overrides.instruction] : []),
+      `${primary.action.charAt(0).toUpperCase()}${primary.action.slice(1)} toward ${primary.activeDegrees}° in a slow, controlled motion.`,
+      ...(supporting.length
+        ? [`Let the ${supporting.map((motion) => motion.label).join(" and ")} move naturally with it.`]
+        : []),
+      `Return the ${primary.label} toward ${primary.startDegrees}° to complete the repetition.`,
+      "Follow the live cue and stay within a comfortable, pain-free range.",
+    ],
+    cameraTip: "Use the same camera direction as the therapist recording and keep your full body visible.",
+  };
+}

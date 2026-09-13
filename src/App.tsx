@@ -3,7 +3,7 @@ import TabBar, { type PatientTab } from "./components/TabBar";
 import type { ExerciseId } from "./exercises/exerciseCatalog";
 import { exerciseName } from "./exercises/exerciseCatalog";
 import { codesMatch, createPlanStep, type Prescription } from "./exercises/prescription";
-import { loadReferenceExercise } from "./exercises/custom/referenceExercise";
+import type { ReferenceExercise } from "./exercises/custom/referenceExercise";
 import ChatScreen from "./screens/ChatScreen";
 import ExerciseDetailScreen from "./screens/ExerciseDetailScreen";
 import HomeScreen from "./screens/HomeScreen";
@@ -58,7 +58,7 @@ type Route =
   | { name: "therapist-record"; draft: Prescription }
   | { name: "home" }
   | { name: "program" }
-  | { name: "exercise"; exerciseId: ExerciseId }
+  | { name: "exercise"; exerciseId: ExerciseId; referenceExercise?: ReferenceExercise }
   | { name: "progress" }
   | { name: "chat" }
   | { name: "profile" }
@@ -75,14 +75,19 @@ const TAB_FOR_ROUTE: Partial<Record<Route["name"], PatientTab>> = {
   profile: "profile",
 };
 
-function practicePlan(exerciseId: ExerciseId, source: Prescription): Prescription {
-  const prescribed = source.steps.find((step) => step.exerciseId === exerciseId);
+function practicePlan(exerciseId: ExerciseId, source: Prescription, referenceExercise?: ReferenceExercise): Prescription {
+  const prescribed = source.steps.find((step) => exerciseId === "custom"
+    ? Boolean(step.referenceExercise && referenceExercise) &&
+      (step.referenceExercise?.id && referenceExercise?.id
+        ? step.referenceExercise.id === referenceExercise.id
+        : step.referenceExercise?.recordedAt === referenceExercise?.recordedAt)
+    : step.exerciseId === exerciseId);
 
   return {
     therapist: source.therapist,
-    title: `Practice: ${prescribed?.referenceExercise?.name ?? exerciseName(exerciseId)}`,
+    title: `Practice: ${referenceExercise?.name ?? prescribed?.referenceExercise?.name ?? exerciseName(exerciseId)}`,
     steps: [
-      createPlanStep(exerciseId, prescribed?.targetReps ?? 8, prescribed?.referenceExercise),
+      createPlanStep(exerciseId, prescribed?.targetReps ?? 8, referenceExercise ?? prescribed?.referenceExercise),
     ],
   };
 }
@@ -91,7 +96,7 @@ function referenceRecordingPlan(source: Prescription): Prescription {
   return {
     therapist: source.therapist,
     title: "Record a custom exercise",
-    steps: [createPlanStep("custom", 1, loadReferenceExercise() ?? undefined)],
+    steps: [createPlanStep("custom", 1)],
   };
 }
 
@@ -474,7 +479,7 @@ export default function App() {
       page = (
         <ProgramScreen
           plan={plan}
-          onOpenExercise={(exerciseId) => go({ name: "exercise", exerciseId })}
+          onOpenExercise={(exerciseId, referenceExercise) => go({ name: "exercise", exerciseId, referenceExercise })}
           onStartSession={startPrescribed}
         />
       );
@@ -483,11 +488,12 @@ export default function App() {
       page = (
         <ExerciseDetailScreen
           exerciseId={route.exerciseId}
+          referenceExercise={route.referenceExercise}
           plan={plan}
           onBack={() => go({ name: "program" })}
           onStartSession={startPrescribed}
-          onPractice={(exerciseId) =>
-            go({ name: "readiness", plan: practicePlan(exerciseId, plan) })
+          onPractice={(exerciseId, referenceExercise) =>
+            go({ name: "readiness", plan: practicePlan(exerciseId, plan, referenceExercise) })
           }
         />
       );
