@@ -3,9 +3,11 @@ import { parseReferenceExercise, type ReferenceExercise } from "../exercises/cus
 import { normalizeClinicCode } from "./clinicCode";
 import { sanitisePrescription, type StoredPrescription } from "./prescriptionStore";
 import { sanitiseSessionRecord, type SessionRecord } from "./patientProfile";
+import { formatSessionLogMessage } from "./sessionLog";
 
 export type ClinicSession = SessionRecord & {
   patientName: string;
+  clinicCode: string;
 };
 
 export type ClinicMessageSender = "patient" | "therapist";
@@ -126,6 +128,7 @@ export function parseClinicSessionRow(row: ClinicSessionRow | null | undefined):
     ...record,
     date: record.date || row.recorded_at,
     patientName: row.patient_name.trim() || "Patient",
+    clinicCode: row.clinic_code,
   };
 }
 
@@ -479,16 +482,29 @@ export async function publishClinicSession(
 ): Promise<void> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
+  const name = patientName.trim().slice(0, 80);
 
-  if (!supabase || !clinicCode) {
-    return;
+  if (!supabase) {
+    throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env, then restart the app.");
+  }
+
+  if (!clinicCode) {
+    throw new Error("Set an access code so this session can reach the therapist.");
+  }
+
+  if (!name) {
+    throw new Error("A patient name is required to send this session.");
   }
 
   const { error } = await supabase.from("clinic_sessions").insert({
     clinic_code: clinicCode,
-    patient_name: patientName.trim().slice(0, 80),
+    patient_name: name,
     recorded_at: record.date,
-    payload: record,
+    payload: {
+      ...record,
+      patientName: name,
+      clinicCode,
+    },
   });
 
   if (error) {
@@ -721,6 +737,15 @@ export async function sendClinicMessage(
   }
 
   return message;
+}
+
+export async function publishSessionToTherapist(
+  code: string,
+  patientName: string,
+  record: SessionRecord,
+): Promise<void> {
+  await publishClinicSession(code, patientName, record);
+  await sendClinicMessage(code, patientName, "patient", formatSessionLogMessage(patientName, code, record));
 }
 
 export async function clearClinicChat(code: string, patientName: string): Promise<void> {

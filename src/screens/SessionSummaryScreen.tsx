@@ -15,11 +15,20 @@ import {
 type Props = {
   record: SessionRecord;
   profile: PatientProfile;
+  clinicCode?: string;
+  therapistDelivery?: "sent" | "skipped" | "failed";
   onDone: () => void;
   onViewProgress: () => void;
 };
 
-export default function SessionSummaryScreen({ record, onDone, onViewProgress }: Props) {
+export default function SessionSummaryScreen({
+  record,
+  profile,
+  clinicCode,
+  therapistDelivery = "skipped",
+  onDone,
+  onViewProgress,
+}: Props) {
   const completion = sessionCompletion(record);
   const reps = sessionReps(record);
   const target = sessionTarget(record);
@@ -52,6 +61,17 @@ export default function SessionSummaryScreen({ record, onDone, onViewProgress }:
             {flaggedReps > 0 ? ` · ${flaggedReps} form corrections` : ""}
             {mainIssue ? ` · main issue: ${issueLabel(mainIssue)}` : ""}
           </p>
+          {therapistDelivery === "sent" && (
+            <p className="lede" style={{ marginTop: 4 }}>
+              Sent to your therapist as {profile.name}
+              {clinicCode ? ` · code ${clinicCode}` : ""}
+            </p>
+          )}
+          {therapistDelivery === "failed" && (
+            <p className="lede" style={{ marginTop: 4 }}>
+              Saved on this device, but the therapist log did not send. Try again from a better connection.
+            </p>
+          )}
         </div>
       </div>
 

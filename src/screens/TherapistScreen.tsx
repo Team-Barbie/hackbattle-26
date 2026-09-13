@@ -490,11 +490,18 @@ export default function TherapistScreen({
                       </div>
                       <div>
                         <p className="row__title">
-                          {session.patientName} · {formatDay(session.date)}
+                          {session.patientName}
+                          {session.clinicCode ? ` · code ${session.clinicCode}` : ""}
                         </p>
                         <p className="row__sub">
-                          {sessionReps(session)}/{sessionTarget(session)} reps ·{" "}
+                          {formatDay(session.date)} · {sessionReps(session)}/{sessionTarget(session)} reps ·{" "}
                           {formatDuration(session.durationMs)}
+                          {session.steps.some((step) => step.mainIssue)
+                            ? ` · ${session.steps
+                                .filter((step) => step.mainIssue)
+                                .map((step) => shortExerciseName(step.exerciseId))
+                                .join(", ")} flagged`
+                            : ""}
                         </p>
                       </div>
                       <span className="row__end">{Math.round(sessionCompletion(session) * 100)}%</span>

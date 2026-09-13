@@ -24,7 +24,7 @@ import {
   isClinicCloudEnabled,
   normalizeClinicCode,
   publishClinicPlan,
-  publishClinicSession,
+  publishSessionToTherapist,
   publishExerciseReference,
   subscribeClinic,
   subscribeExerciseReferences,
@@ -64,7 +64,12 @@ type Route =
   | { name: "profile" }
   | { name: "readiness"; plan: Prescription }
   | { name: "session"; plan: Prescription; readiness: number | null }
-  | { name: "summary"; record: SessionRecord };
+  | {
+      name: "summary";
+      record: SessionRecord;
+      clinicCode?: string;
+      therapistDelivery?: "sent" | "skipped" | "failed";
+    };
 
 const TAB_FOR_ROUTE: Partial<Record<Route["name"], PatientTab>> = {
   home: "home",
@@ -297,7 +302,7 @@ export default function App() {
     }
   }
 
-  function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
+  async function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
     if (!profile) {
       go({ name: "role" });
       return;
@@ -316,13 +321,18 @@ export default function App() {
 
     setProfile(updated);
 
+    let therapistDelivery: "sent" | "skipped" | "failed" = "skipped";
+
     if (cloudEnabled && sessionClinic && latest) {
-      void publishClinicSession(sessionClinic, updated.name, latest).catch(() => {
-        // Local history still saved.
-      });
+      try {
+        await publishSessionToTherapist(sessionClinic, updated.name, latest);
+        therapistDelivery = "sent";
+      } catch {
+        therapistDelivery = "failed";
+      }
     }
 
-    go({ name: "summary", record: latest });
+    go({ name: "summary", record: latest, clinicCode: sessionClinic, therapistDelivery });
   }
 
   async function handlePublish(nextPlan: Prescription) {
@@ -449,7 +459,7 @@ export default function App() {
       <SessionScreen
         key={sessionPlan.steps.map((step) => `${step.id}:${step.exerciseId}:${step.targetReps}`).join("|")}
         plan={sessionPlan}
-        onFinish={(outcome) => handleFinishSession(outcome, sessionPlan, readiness)}
+        onFinish={(outcome) => void handleFinishSession(outcome, sessionPlan, readiness)}
         onExit={() => go({ name: "home" })}
       />
     );
@@ -460,6 +470,8 @@ export default function App() {
       <SessionSummaryScreen
         record={route.record}
         profile={profile}
+        clinicCode={route.clinicCode}
+        therapistDelivery={route.therapistDelivery}
         onDone={() => go({ name: "home" })}
         onViewProgress={() => go({ name: "progress" })}
       />

@@ -72,6 +72,7 @@ describe("parseClinicSessionRow", () => {
     });
 
     expect(session?.patientName).toBe("Asha");
+    expect(session?.clinicCode).toBe("mehta4");
     expect(session?.id).toBe("session-1");
     expect(session?.steps[0]?.reps).toBe(8);
   });
@@ -204,6 +205,7 @@ describe("mergeClinicInbox", () => {
           durationMs: 120000,
           steps: [],
           patientName: "Asha",
+          clinicCode: "mehta4",
         },
       ],
       [
