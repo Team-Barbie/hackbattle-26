@@ -26,6 +26,7 @@ describe("currentStreak", () => {
           therapist: "Dr",
           readiness: null,
           durationMs: 1000,
+          earlyExitReason: null,
           steps: [
             {
               exerciseId: "squat",
@@ -44,6 +45,7 @@ describe("currentStreak", () => {
           therapist: "Dr",
           readiness: null,
           durationMs: 1000,
+          earlyExitReason: null,
           steps: [
             {
               exerciseId: "squat",

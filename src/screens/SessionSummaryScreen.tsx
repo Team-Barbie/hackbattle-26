@@ -1,3 +1,4 @@
+import Confetti from "../components/Confetti";
 import Icon from "../components/Icon";
 import ProgressRing from "../components/ProgressRing";
 import { issueLabel } from "../coaching/feedback";
@@ -35,9 +36,14 @@ export default function SessionSummaryScreen({
   const goodReps = record.steps.reduce((total, step) => total + step.goodReps, 0);
   const flaggedReps = record.steps.reduce((total, step) => total + step.flaggedReps, 0);
   const mainIssue = record.steps.find((step) => step.mainIssue)?.mainIssue ?? null;
+  const finishedEarly = completion < 1;
+  const stoppedAt = finishedEarly
+    ? record.steps.find((step) => step.reps < step.targetReps)
+    : undefined;
 
   return (
     <div className="screen screen--narrow screen--centered">
+      {!finishedEarly && <Confetti />}
       <div className="summary__hero">
         <div className="summary__ring">
           <ProgressRing value={completion} thickness={0.08} label={`${Math.round(completion * 100)}% complete`} />
@@ -49,7 +55,7 @@ export default function SessionSummaryScreen({
           </div>
         </div>
         <div>
-          <h1>{completion >= 1 ? "Session complete" : "Session saved"}</h1>
+          <h1>{finishedEarly ? "Better luck next time" : "Session complete"}</h1>
           <p className="lede" style={{ marginTop: 4 }}>
             {record.planTitle} · {formatDuration(record.durationMs)}
             {record.readiness !== null
@@ -61,6 +67,15 @@ export default function SessionSummaryScreen({
             {flaggedReps > 0 ? ` · ${flaggedReps} form corrections` : ""}
             {mainIssue ? ` · main issue: ${issueLabel(mainIssue)}` : ""}
           </p>
+          {finishedEarly && (
+            <p className="lede" style={{ marginTop: 4 }}>
+              {record.earlyExitReason
+                ? `Reason: ${record.earlyExitReason}`
+                : stoppedAt
+                  ? `You ended during ${stoppedAt.exerciseName ?? exerciseName(stoppedAt.exerciseId)} — ${stoppedAt.reps}/${stoppedAt.targetReps} reps done.`
+                  : "You ended before completing today's plan."}
+            </p>
+          )}
           {therapistDelivery === "sent" && (
             <p className="lede" style={{ marginTop: 4 }}>
               Sent to your therapist as {profile.name}

@@ -28,6 +28,10 @@ export function formatSessionLogMessage(
     lines.push(`Felt ${READINESS_LABELS[record.readiness].toLowerCase()}`);
   }
 
+  if (record.earlyExitReason) {
+    lines.push(`Stopped early: ${record.earlyExitReason}`);
+  }
+
   for (const step of record.steps) {
     const label = step.exerciseName ?? shortExerciseName(step.exerciseId);
     const parts = [`${label} ${step.reps}/${step.targetReps}`];

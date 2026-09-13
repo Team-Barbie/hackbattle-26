@@ -206,6 +206,7 @@ describe("mergeClinicInbox", () => {
           readiness: 3,
           durationMs: 120000,
           steps: [],
+          earlyExitReason: null,
           patientName: "Asha",
           clinicCode: "mehta4",
         },
