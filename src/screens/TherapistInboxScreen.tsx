@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Brand from "../components/Brand";
 import Icon from "../components/Icon";
 import { formatDay, formatTime } from "../content/exerciseMeta";
@@ -8,6 +8,7 @@ import {
   subscribeClinic,
   type ClinicConversation,
   type ClinicMessage,
+  type ClinicPatient,
   type ClinicSession,
 } from "../state/clinicCloud";
 import { currentStreak, type PatientProfile } from "../state/patientProfile";
@@ -15,9 +16,11 @@ import { currentStreak, type PatientProfile } from "../state/patientProfile";
 type Props = {
   patient: PatientProfile | null;
   clinicSessions: ClinicSession[];
+  clinicPatients?: ClinicPatient[];
   clinicCode: string;
   cloudEnabled: boolean;
   onOpenChat: (patientName: string) => void;
+  onRefreshSessions?: () => void | Promise<void>;
   onBack: () => void;
 };
 
@@ -35,19 +38,47 @@ function conversationPreview(conversation: ClinicConversation, local: PatientPro
     return `${local.sessions.length} sessions · ${currentStreak(local)}-day streak`;
   }
 
-  return "No messages yet";
+  return "Signed in · no messages yet";
 }
 
 export default function TherapistInboxScreen({
   patient,
   clinicSessions,
+  clinicPatients = [],
   clinicCode,
   cloudEnabled,
   onOpenChat,
+  onRefreshSessions,
   onBack,
 }: Props) {
   const [messages, setMessages] = useState<ClinicMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [reloading, setReloading] = useState(false);
+  const [targetName, setTargetName] = useState("");
+
+  async function loadInbox(silent = false) {
+    if (!cloudEnabled || !clinicCode) {
+      setMessages([]);
+      return;
+    }
+
+    if (silent) {
+      setReloading(true);
+    }
+
+    try {
+      const [thread] = await Promise.all([
+        fetchClinicMessages(clinicCode),
+        onRefreshSessions?.(),
+      ]);
+      setMessages(thread);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load inbox.");
+    } finally {
+      setReloading(false);
+    }
+  }
 
   useEffect(() => {
     if (!cloudEnabled || !clinicCode) {
@@ -55,21 +86,7 @@ export default function TherapistInboxScreen({
       return;
     }
 
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const thread = await fetchClinicMessages(clinicCode);
-        if (!cancelled) {
-          setMessages(thread);
-          setError(null);
-        }
-      } catch (cause) {
-        if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : "Could not load inbox.");
-        }
-      }
-    })();
+    void loadInbox();
 
     const unsubscribe = subscribeClinic(
       clinicCode,
@@ -92,14 +109,17 @@ export default function TherapistInboxScreen({
     );
 
     return () => {
-      cancelled = true;
       unsubscribe();
     };
   }, [clinicCode, cloudEnabled]);
 
   const conversations = useMemo(
-    () => mergeClinicInbox(clinicSessions, messages, patient ? [patient.name] : []),
-    [clinicSessions, messages, patient],
+    () =>
+      mergeClinicInbox(clinicSessions, messages, [
+        ...(patient ? [patient.name] : []),
+        ...clinicPatients.map((item) => item.name),
+      ]),
+    [clinicPatients, clinicSessions, messages, patient],
   );
 
   return (
@@ -114,9 +134,45 @@ export default function TherapistInboxScreen({
 
       <header className="page__header">
         <p className="eyebrow">Messages</p>
-        <h1>Inbox</h1>
-        <p className="lede">Conversations with your patients.</p>
+        <div className="chat-heading">
+          <h1>Inbox</h1>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            disabled={!cloudEnabled || !clinicCode || reloading}
+            onClick={() => void loadInbox(true)}
+          >
+            <Icon name="reset" />
+            {reloading ? "Reloading…" : "Reload"}
+          </button>
+        </div>
+        <p className="lede">Open a patient or type their name to send a message to that person only.</p>
       </header>
+
+      <form
+        className="chat-composer"
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          const name = targetName.trim();
+          if (!name) {
+            return;
+          }
+
+          onOpenChat(name);
+        }}
+      >
+        <input
+          type="text"
+          value={targetName}
+          maxLength={80}
+          placeholder="Patient name, exactly as they signed in"
+          onChange={(event) => setTargetName(event.target.value)}
+          aria-label="Patient to message"
+        />
+        <button type="submit" className="btn btn--sm" disabled={!targetName.trim()}>
+          Message
+        </button>
+      </form>
 
       {error && <p className="notice notice--error">{error}</p>}
 

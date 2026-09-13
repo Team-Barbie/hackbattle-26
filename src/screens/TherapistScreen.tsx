@@ -14,7 +14,7 @@ import {
   type PlanStep,
   type Prescription,
 } from "../exercises/prescription";
-import { type ClinicSession, type SharedExerciseReference } from "../state/clinicCloud";
+import { type ClinicPatient, type SharedExerciseReference } from "../state/clinicCloud";
 import { sharedPlanUrl } from "../state/prescriptionStore";
 import {
   currentStreak,
@@ -29,7 +29,7 @@ type Props = {
   stored: StoredPrescription;
   initialDraft?: Prescription;
   patient: PatientProfile | null;
-  clinicSessions: ClinicSession[];
+  clinicPatients: ClinicPatient[];
   exerciseReferences: SharedExerciseReference[];
   cloudEnabled: boolean;
   onPublish: (plan: Prescription) => void | Promise<void>;
@@ -37,6 +37,7 @@ type Props = {
   onBack: () => void;
   onPreviewAsPatient: () => void;
   onOpenInbox: () => void;
+  onRefreshClinic?: () => void | Promise<void>;
   onRecordCustomExercise: (draft: Prescription) => void;
 };
 
@@ -65,7 +66,7 @@ export default function TherapistScreen({
   stored,
   initialDraft,
   patient,
-  clinicSessions,
+  clinicPatients,
   exerciseReferences,
   cloudEnabled,
   onPublish,
@@ -73,6 +74,7 @@ export default function TherapistScreen({
   onBack,
   onPreviewAsPatient,
   onOpenInbox,
+  onRefreshClinic,
   onRecordCustomExercise,
 }: Props) {
   const [draft, setDraft] = useState<Prescription>(() =>
@@ -82,6 +84,7 @@ export default function TherapistScreen({
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const [reloading, setReloading] = useState(false);
   const editedRef = useRef(Boolean(initialDraft));
   const customExercise =
     loadReferenceExercise() ??
@@ -169,6 +172,21 @@ export default function TherapistScreen({
     setCopyState("idle");
   }
 
+  async function handleRefreshClinic() {
+    if (!onRefreshClinic || reloading) {
+      return;
+    }
+
+    setReloading(true);
+    try {
+      await onRefreshClinic();
+    } catch {
+      // Keep the last roster if the clinic is unreachable.
+    } finally {
+      setReloading(false);
+    }
+  }
+
   async function handleCopyLink() {
     try {
       await navigator.clipboard.writeText(sharedPlanUrl(stored.plan));
@@ -192,6 +210,17 @@ export default function TherapistScreen({
             <Icon name="chat" />
             Messages
           </button>
+          {cloudEnabled && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={!onRefreshClinic || reloading}
+              onClick={() => void handleRefreshClinic()}
+            >
+              <Icon name="reset" />
+              {reloading ? "Reloading…" : "Reload"}
+            </button>
+          )}
         </div>
         <Brand />
       </div>
@@ -262,7 +291,7 @@ export default function TherapistScreen({
               Add at least one below before publishing.
             </p>
           ) : (
-            <ol className="list">
+            <ol className="editor-steps">
               {draft.steps.map((step, index) => (
                 <li key={step.id} className="editor-step">
                   <span className="row__index">{index + 1}</span>
@@ -476,32 +505,54 @@ export default function TherapistScreen({
 
           {cloudEnabled && (
             <section className="card" aria-label="Clinic patients">
-              <h2 className="section-title">Clinic patients</h2>
-              {clinicSessions.length === 0 ? (
+              <div className="chat-heading">
+                <h2 className="section-title">Clinic patients</h2>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  disabled={!onRefreshClinic || reloading}
+                  onClick={() => void handleRefreshClinic()}
+                >
+                  <Icon name="reset" />
+                  {reloading ? "Reloading…" : "Reload"}
+                </button>
+              </div>
+              {clinicPatients.length === 0 ? (
                 <p className="empty">
-                  <strong>Waiting for sessions</strong>
-                  After a patient signs in with this access code and finishes a workout, it shows up
-                  here.
+                  <strong>Waiting for patients</strong>
+                  When someone signs in with this access code, they show up here. Workouts they finish
+                  attach to that same name.
                 </p>
               ) : (
                 <ul className="list">
-                  {clinicSessions.slice(0, 8).map((session) => (
-                    <li key={session.id} className="row row--leading">
-                      <div className="ring-sm" style={{ width: 32, height: 32 }}>
-                        <ProgressRing value={sessionCompletion(session)} thickness={0.14} />
-                      </div>
-                      <div>
-                        <p className="row__title">
-                          {session.patientName} · {formatDay(session.date)}
-                        </p>
-                        <p className="row__sub">
-                          {sessionReps(session)}/{sessionTarget(session)} reps ·{" "}
-                          {formatDuration(session.durationMs)}
-                        </p>
-                      </div>
-                      <span className="row__end">{Math.round(sessionCompletion(session) * 100)}%</span>
-                    </li>
-                  ))}
+                  {clinicPatients.slice(0, 12).map((clinicPatient) => {
+                    const latest = clinicPatient.lastSession;
+
+                    return (
+                      <li key={clinicPatient.name.toLowerCase()} className="row row--leading">
+                        <div className="ring-sm" style={{ width: 32, height: 32 }}>
+                          <ProgressRing
+                            value={latest ? sessionCompletion(latest) : 0}
+                            thickness={0.14}
+                          />
+                        </div>
+                        <div>
+                          <p className="row__title">
+                            {clinicPatient.name}
+                            {clinicPatient.clinicCode ? ` · code ${clinicPatient.clinicCode}` : ""}
+                          </p>
+                          <p className="row__sub">
+                            {latest
+                              ? `${clinicPatient.sessionCount} session${clinicPatient.sessionCount === 1 ? "" : "s"} · ${formatDay(latest.date)} · ${sessionReps(latest)}/${sessionTarget(latest)} reps · ${formatDuration(latest.durationMs)}`
+                              : `Signed in ${clinicPatient.joinedAt ? formatDay(clinicPatient.joinedAt) : "today"} · no session yet`}
+                          </p>
+                        </div>
+                        <span className="row__end">
+                          {latest ? `${Math.round(sessionCompletion(latest) * 100)}%` : "New"}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>

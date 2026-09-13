@@ -131,10 +131,24 @@ export function loadPatientProfile(): PatientProfile | null {
 }
 
 export function createPatientProfile(name: string, clinicCode?: string): PatientProfile {
+  const trimmed = name.trim();
+  const code = normalizeClinicCode(clinicCode) || undefined;
+  const existing = loadPatientProfile();
+
+  if (existing && existing.name.trim().toLowerCase() === trimmed.toLowerCase()) {
+    const updated: PatientProfile = {
+      ...existing,
+      name: trimmed,
+      clinicCode: code ?? existing.clinicCode,
+    };
+    save(updated);
+    return updated;
+  }
+
   const profile: PatientProfile = {
-    name,
+    name: trimmed,
     createdAt: new Date().toISOString(),
-    clinicCode: normalizeClinicCode(clinicCode) || undefined,
+    clinicCode: code,
     sessions: [],
   };
   save(profile);

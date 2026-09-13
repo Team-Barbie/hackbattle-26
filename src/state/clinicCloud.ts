@@ -3,9 +3,11 @@ import { parseReferenceExercise, type ReferenceExercise } from "../exercises/cus
 import { normalizeClinicCode } from "./clinicCode";
 import { sanitisePrescription, type StoredPrescription } from "./prescriptionStore";
 import { sanitiseSessionRecord, type SessionRecord } from "./patientProfile";
+import { formatSessionLogMessage } from "./sessionLog";
 
 export type ClinicSession = SessionRecord & {
   patientName: string;
+  clinicCode: string;
 };
 
 export type ClinicMessageSender = "patient" | "therapist";
@@ -23,6 +25,20 @@ export type ClinicConversation = {
   patientName: string;
   lastMessage: ClinicMessage | null;
   sessionCount: number;
+};
+
+export type ClinicPatientJoin = {
+  name: string;
+  clinicCode: string;
+  joinedAt: string;
+};
+
+export type ClinicPatient = {
+  name: string;
+  clinicCode: string;
+  joinedAt: string;
+  sessionCount: number;
+  lastSession: ClinicSession | null;
 };
 
 export type SharedExerciseReference = {
@@ -67,6 +83,7 @@ type ExerciseReferenceRow = {
 const MESSAGE_MAX_LENGTH = 1000;
 const CHAT_SESSION_KIND = "chat_message";
 const CHAT_CLEARED_KIND = "chat_cleared";
+const PATIENT_JOINED_KIND = "patient_joined";
 
 /** Null until the first messages query; false means use clinic_sessions as the inbox. */
 let preferDedicatedMessages: boolean | null = null;
@@ -126,6 +143,7 @@ export function parseClinicSessionRow(row: ClinicSessionRow | null | undefined):
     ...record,
     date: record.date || row.recorded_at,
     patientName: row.patient_name.trim() || "Patient",
+    clinicCode: row.clinic_code,
   };
 }
 
@@ -196,6 +214,25 @@ export function applyChatHistoryClears(
     const cutoff = latest.get(conversationKey(message.patientName));
     return cutoff === undefined || Date.parse(message.sentAt) > cutoff;
   });
+}
+
+export function parsePatientJoinedRow(row: ClinicSessionRow | null | undefined): ClinicPatientJoin | null {
+  if (!row || !row.payload || typeof row.payload !== "object") {
+    return null;
+  }
+
+  const payload = row.payload as { kind?: unknown };
+  const name = row.patient_name.trim();
+
+  if (payload.kind !== PATIENT_JOINED_KIND || !name) {
+    return null;
+  }
+
+  return {
+    name,
+    clinicCode: row.clinic_code,
+    joinedAt: row.recorded_at,
+  };
 }
 
 export function parseChatSessionRow(row: ClinicSessionRow | null | undefined): ClinicMessage | null {
@@ -288,6 +325,80 @@ export function mergeClinicInbox(
     }
 
     return a.patientName.localeCompare(b.patientName);
+  });
+}
+
+export function mergeClinicPatients(
+  sessions: ClinicSession[],
+  joins: ClinicPatientJoin[],
+  extraNames: string[] = [],
+): ClinicPatient[] {
+  const map = new Map<string, ClinicPatient>();
+
+  function upsert(name: string, clinicCode: string, at: string): ClinicPatient | undefined {
+    const trimmed = name.trim().slice(0, 80);
+    const key = conversationKey(trimmed);
+
+    if (!key) {
+      return undefined;
+    }
+
+    const existing = map.get(key);
+
+    if (existing) {
+      if (at && (!existing.joinedAt || Date.parse(at) < Date.parse(existing.joinedAt))) {
+        existing.joinedAt = at;
+      }
+
+      if (clinicCode && !existing.clinicCode) {
+        existing.clinicCode = clinicCode;
+      }
+
+      return existing;
+    }
+
+    const created: ClinicPatient = {
+      name: trimmed,
+      clinicCode,
+      joinedAt: at,
+      sessionCount: 0,
+      lastSession: null,
+    };
+    map.set(key, created);
+    return created;
+  }
+
+  for (const name of extraNames) {
+    upsert(name, "", "");
+  }
+
+  for (const join of joins) {
+    upsert(join.name, join.clinicCode, join.joinedAt);
+  }
+
+  for (const session of sessions) {
+    const row = upsert(session.patientName, session.clinicCode, session.date);
+
+    if (!row) {
+      continue;
+    }
+
+    row.sessionCount += 1;
+
+    if (!row.lastSession || Date.parse(session.date) >= Date.parse(row.lastSession.date)) {
+      row.lastSession = session;
+    }
+  }
+
+  return [...map.values()].sort((left, right) => {
+    const leftTime = left.lastSession?.date ?? left.joinedAt;
+    const rightTime = right.lastSession?.date ?? right.joinedAt;
+
+    if (leftTime !== rightTime) {
+      return rightTime.localeCompare(leftTime);
+    }
+
+    return left.name.localeCompare(right.name);
   });
 }
 
@@ -447,7 +558,7 @@ export async function publishClinicPlan(stored: StoredPrescription): Promise<voi
   }
 }
 
-export async function fetchClinicSessions(code: string): Promise<ClinicSession[]> {
+async function fetchClinicSessionRows(code: string, limit = 400): Promise<ClinicSessionRow[]> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
 
@@ -460,16 +571,74 @@ export async function fetchClinicSessions(code: string): Promise<ClinicSession[]
     .select("id, clinic_code, patient_name, recorded_at, payload")
     .eq("clinic_code", clinicCode)
     .order("recorded_at", { ascending: false })
-    .limit(40);
+    .limit(limit);
 
   if (error) {
     throw new Error(clinicErrorMessage(error));
   }
 
-  return (data as ClinicSessionRow[] | null)?.flatMap((row) => {
+  return (data as ClinicSessionRow[] | null) ?? [];
+}
+
+function joinsFromSessionRows(rows: ClinicSessionRow[]): ClinicPatientJoin[] {
+  return rows.flatMap((row) => {
+    const name = row.patient_name.trim();
+    return name
+      ? [{ name, clinicCode: row.clinic_code, joinedAt: row.recorded_at }]
+      : [];
+  });
+}
+
+export async function fetchClinicSessions(code: string): Promise<ClinicSession[]> {
+  const rows = await fetchClinicSessionRows(code, 40);
+  return rows.flatMap((row) => {
     const session = parseClinicSessionRow(row);
     return session ? [session] : [];
-  }) ?? [];
+  });
+}
+
+export async function fetchClinicRoster(code: string): Promise<{
+  sessions: ClinicSession[];
+  joins: ClinicPatientJoin[];
+}> {
+  const rows = await fetchClinicSessionRows(code);
+  return {
+    sessions: rows.flatMap((row) => {
+      const session = parseClinicSessionRow(row);
+      return session ? [session] : [];
+    }),
+    joins: joinsFromSessionRows(rows),
+  };
+}
+
+export async function registerClinicPatient(code: string, patientName: string): Promise<void> {
+  const supabase = getSupabase();
+  const clinicCode = normalizeClinicCode(code);
+  const name = patientName.trim().slice(0, 80);
+
+  if (!supabase || !clinicCode || !name) {
+    return;
+  }
+
+  const rows = await fetchClinicSessionRows(clinicCode);
+
+  if (rows.some((row) => samePatient(row.patient_name, name))) {
+    return;
+  }
+
+  const joinedAt = new Date().toISOString();
+  const { error } = await supabase.from("clinic_sessions").insert({
+    clinic_code: clinicCode,
+    patient_name: name,
+    recorded_at: joinedAt,
+    payload: {
+      kind: PATIENT_JOINED_KIND,
+    },
+  });
+
+  if (error) {
+    throw new Error(clinicErrorMessage(error));
+  }
 }
 
 export async function publishClinicSession(
@@ -479,16 +648,29 @@ export async function publishClinicSession(
 ): Promise<void> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
+  const name = patientName.trim().slice(0, 80);
 
-  if (!supabase || !clinicCode) {
-    return;
+  if (!supabase) {
+    throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env, then restart the app.");
+  }
+
+  if (!clinicCode) {
+    throw new Error("Set an access code so this session can reach the therapist.");
+  }
+
+  if (!name) {
+    throw new Error("A patient name is required to send this session.");
   }
 
   const { error } = await supabase.from("clinic_sessions").insert({
     clinic_code: clinicCode,
-    patient_name: patientName.trim().slice(0, 80),
+    patient_name: name,
     recorded_at: record.date,
-    payload: record,
+    payload: {
+      ...record,
+      patientName: name,
+      clinicCode,
+    },
   });
 
   if (error) {
@@ -609,6 +791,24 @@ async function fetchChatClears(
   });
 }
 
+function mergeMessages(groups: ClinicMessage[][]): ClinicMessage[] {
+  const byId = new Map<string, ClinicMessage>();
+
+  for (const group of groups) {
+    for (const message of group) {
+      byId.set(message.id, message);
+    }
+  }
+
+  return [...byId.values()].sort((left, right) => {
+    if (left.sentAt !== right.sentAt) {
+      return left.sentAt.localeCompare(right.sentAt);
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export async function fetchClinicMessages(code: string, patientName?: string): Promise<ClinicMessage[]> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
@@ -617,14 +817,12 @@ export async function fetchClinicMessages(code: string, patientName?: string): P
     return [];
   }
 
+  let dedicated: ClinicMessage[] = [];
+
   if (preferDedicatedMessages !== false) {
     try {
-      const [messages, clears] = await Promise.all([
-        fetchDedicatedMessages(clinicCode, patientName),
-        fetchChatClears(clinicCode, patientName),
-      ]);
+      dedicated = await fetchDedicatedMessages(clinicCode, patientName);
       preferDedicatedMessages = true;
-      return applyChatHistoryClears(messages, clears);
     } catch (error) {
       if (!error || typeof error !== "object" || !isMissingTableError(error as { code?: string; message: string })) {
         throw error instanceof Error ? error : new Error("Could not load messages.");
@@ -634,7 +832,12 @@ export async function fetchClinicMessages(code: string, patientName?: string): P
     }
   }
 
-  return fetchSessionMessages(clinicCode, patientName);
+  const [sessionMessages, clears] = await Promise.all([
+    fetchSessionMessages(clinicCode, patientName),
+    fetchChatClears(clinicCode, patientName),
+  ]);
+
+  return applyChatHistoryClears(mergeMessages([sessionMessages, dedicated]), clears);
 }
 
 export async function sendClinicMessage(
@@ -723,6 +926,15 @@ export async function sendClinicMessage(
   return message;
 }
 
+export async function publishSessionToTherapist(
+  code: string,
+  patientName: string,
+  record: SessionRecord,
+): Promise<void> {
+  await publishClinicSession(code, patientName, record);
+  await sendClinicMessage(code, patientName, "patient", formatSessionLogMessage(patientName, code, record));
+}
+
 export async function clearClinicChat(code: string, patientName: string): Promise<void> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
@@ -761,6 +973,7 @@ export function subscribeClinic(
   handlers: {
     onPlan?: (stored: StoredPrescription) => void;
     onSession?: (session: ClinicSession) => void;
+    onPatientJoined?: (patient: ClinicPatientJoin) => void;
     onMessage?: (message: ClinicMessage) => void;
     onChatCleared?: (patientName: string, clearedAt: string) => void;
   },
@@ -803,6 +1016,11 @@ export function subscribeClinic(
         const session = parseClinicSessionRow(row);
         if (session) {
           handlers.onSession?.(session);
+        }
+
+        const joined = parsePatientJoinedRow(row);
+        if (joined) {
+          handlers.onPatientJoined?.(joined);
         }
 
         const message = parseChatSessionRow(row);

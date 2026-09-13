@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import TabBar, { type PatientTab } from "./components/TabBar";
 import type { ExerciseId } from "./exercises/exerciseCatalog";
 import { exerciseName } from "./exercises/exerciseCatalog";
@@ -20,14 +20,17 @@ import TherapistScreen from "./screens/TherapistScreen";
 import {
   fetchExerciseReferences,
   fetchClinicPlan,
-  fetchClinicSessions,
+  fetchClinicRoster,
   isClinicCloudEnabled,
+  mergeClinicPatients,
   normalizeClinicCode,
   publishClinicPlan,
-  publishClinicSession,
+  publishSessionToTherapist,
   publishExerciseReference,
+  registerClinicPatient,
   subscribeClinic,
   subscribeExerciseReferences,
+  type ClinicPatientJoin,
   type ClinicSession,
   type SharedExerciseReference,
 } from "./state/clinicCloud";
@@ -41,13 +44,23 @@ import {
   type SessionRecord,
 } from "./state/patientProfile";
 import {
+  clearPatientPlan,
   consumeSharedPlanFromUrl,
+  loadPatientPlan,
   loadStoredPrescription,
   publishPrescription,
   resetPrescription,
+  savePatientPlan,
   saveStoredPrescription,
   type StoredPrescription,
 } from "./state/prescriptionStore";
+import {
+  clearActiveRole,
+  loadActiveRole,
+  routeForSession,
+  saveActiveRole,
+  type ActiveRole,
+} from "./state/sessionRole";
 
 type Route =
   | { name: "role" }
@@ -64,7 +77,14 @@ type Route =
   | { name: "profile" }
   | { name: "readiness"; plan: Prescription }
   | { name: "session"; plan: Prescription; readiness: number | null }
-  | { name: "summary"; record: SessionRecord };
+  | {
+      name: "summary";
+      record: SessionRecord;
+      clinicCode?: string;
+      therapistDelivery?: "sent" | "skipped" | "failed";
+    };
+
+const THERAPIST_ROUTES = new Set<Route["name"]>(["therapist", "inbox", "therapistChat", "therapist-record"]);
 
 const TAB_FOR_ROUTE: Partial<Record<Route["name"], PatientTab>> = {
   home: "home",
@@ -116,7 +136,7 @@ function applyRemotePlan(
   next: StoredPrescription,
   routeName: Route["name"],
   local: StoredPrescription,
-  setStored: (stored: StoredPrescription) => void,
+  persist: (stored: StoredPrescription) => void,
 ) {
   if (routeName === "session" || routeName === "readiness" || routeName === "therapist-record") {
     return;
@@ -126,28 +146,63 @@ function applyRemotePlan(
     return;
   }
 
-  setStored(saveStoredPrescription(next));
+  persist(next);
+}
+
+function readPatientPlan(profile: PatientProfile | null): StoredPrescription | null {
+  const existing = loadPatientPlan();
+
+  if (existing) {
+    return existing;
+  }
+
+  if (!profile?.clinicCode) {
+    return null;
+  }
+
+  const studio = loadStoredPrescription();
+
+  if (normalizeClinicCode(studio.plan.accessCode) === profile.clinicCode) {
+    return savePatientPlan(studio);
+  }
+
+  return null;
 }
 
 export default function App() {
   const cloudEnabled = isClinicCloudEnabled();
   const [profile, setProfile] = useState<PatientProfile | null>(() => loadPatientProfile());
-  const [stored, setStored] = useState<StoredPrescription>(() =>
+  const [therapistStored, setTherapistStored] = useState<StoredPrescription>(() =>
     consumeSharedPlanFromUrl() ?? loadStoredPrescription(),
   );
+  const [patientStored, setPatientStored] = useState<StoredPrescription | null>(() =>
+    readPatientPlan(loadPatientProfile()),
+  );
   const [clinicSessions, setClinicSessions] = useState<ClinicSession[]>([]);
+  const [clinicJoins, setClinicJoins] = useState<ClinicPatientJoin[]>([]);
+  const clinicPatients = useMemo(
+    () => mergeClinicPatients(clinicSessions, clinicJoins),
+    [clinicJoins, clinicSessions],
+  );
   const [exerciseReferences, setExerciseReferences] = useState<SharedExerciseReference[]>([]);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [route, setRoute] = useState<Route>(() =>
-    loadPatientProfile() ? { name: "home" } : { name: "role" },
-  );
+  const [route, setRoute] = useState<Route>(() => ({
+    name: routeForSession(loadActiveRole(), Boolean(loadPatientProfile())),
+  }));
   const routeRef = useRef(route);
-  const storedRef = useRef(stored);
+  const storedRef = useRef<StoredPrescription>(therapistStored);
   routeRef.current = route;
+
+  const therapistView = THERAPIST_ROUTES.has(route.name);
+  const stored = therapistView ? therapistStored : (patientStored ?? therapistStored);
   storedRef.current = stored;
 
   const plan = stored.plan;
-  const clinicCode = normalizeClinicCode(profile?.clinicCode ?? stored.plan.accessCode);
+  const clinicCode = normalizeClinicCode(
+    therapistView
+      ? therapistStored.plan.accessCode
+      : profile?.clinicCode ?? patientStored?.plan.accessCode ?? therapistStored.plan.accessCode,
+  );
 
   const go = useCallback((next: Route) => {
     setRoute(next);
@@ -157,6 +212,7 @@ export default function App() {
   useEffect(() => {
     if (!cloudEnabled || !clinicCode) {
       setClinicSessions([]);
+      setClinicJoins([]);
       return;
     }
 
@@ -166,27 +222,41 @@ export default function App() {
       try {
         const remote = await fetchClinicPlan(clinicCode);
         if (!cancelled && remote) {
-          applyRemotePlan(remote, routeRef.current.name, storedRef.current, setStored);
+          applyRemotePlan(remote, routeRef.current.name, storedRef.current, (next) => {
+            if (THERAPIST_ROUTES.has(routeRef.current.name)) {
+              setTherapistStored(saveStoredPrescription(next));
+            } else {
+              setPatientStored(savePatientPlan(next));
+            }
+          });
         }
       } catch {
         // Stay on the last local cache if the clinic is unreachable.
       }
 
       try {
-        const sessions = await fetchClinicSessions(clinicCode);
+        const roster = await fetchClinicRoster(clinicCode);
         if (!cancelled) {
-          setClinicSessions(sessions);
+          setClinicSessions(roster.sessions);
+          setClinicJoins(roster.joins);
         }
       } catch {
         if (!cancelled) {
           setClinicSessions([]);
+          setClinicJoins([]);
         }
       }
     })();
 
     const unsubscribe = subscribeClinic(clinicCode, {
       onPlan(next) {
-        applyRemotePlan(next, routeRef.current.name, storedRef.current, setStored);
+        applyRemotePlan(next, routeRef.current.name, storedRef.current, (plan) => {
+          if (THERAPIST_ROUTES.has(routeRef.current.name)) {
+            setTherapistStored(saveStoredPrescription(plan));
+          } else {
+            setPatientStored(savePatientPlan(plan));
+          }
+        });
       },
       onSession(session) {
         setClinicSessions((current) => {
@@ -197,6 +267,21 @@ export default function App() {
           return [session, ...current].slice(0, 40);
         });
       },
+      onPatientJoined(patient) {
+        setClinicJoins((current) => {
+          if (
+            current.some(
+              (item) =>
+                item.name.trim().toLowerCase() === patient.name.trim().toLowerCase() &&
+                item.joinedAt === patient.joinedAt,
+            )
+          ) {
+            return current;
+          }
+
+          return [patient, ...current];
+        });
+      },
     });
 
     return () => {
@@ -204,6 +289,37 @@ export default function App() {
       unsubscribe();
     };
   }, [clinicCode, cloudEnabled]);
+
+  useEffect(() => {
+    if (!cloudEnabled || therapistView || !profile?.name || !profile.clinicCode) {
+      return;
+    }
+
+    void registerClinicPatient(profile.clinicCode, profile.name).catch(() => {
+      // Stay on the local patient session if the clinic write fails.
+    });
+  }, [cloudEnabled, profile?.clinicCode, profile?.name, therapistView]);
+
+  useEffect(() => {
+    if (!cloudEnabled || !clinicCode || !THERAPIST_ROUTES.has(route.name)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchClinicRoster(clinicCode)
+      .then((roster) => {
+        if (!cancelled) {
+          setClinicSessions(roster.sessions);
+          setClinicJoins(roster.joins);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clinicCode, cloudEnabled, route.name]);
 
   useEffect(() => {
     if (!cloudEnabled) {
@@ -239,8 +355,14 @@ export default function App() {
     };
   }, [cloudEnabled]);
 
-  function handleSelectRole(role: Role) {
-    if (role === "therapist") {
+  function rememberRole(next: ActiveRole) {
+    saveActiveRole(next);
+  }
+
+  function handleSelectRole(next: Role) {
+    rememberRole(next);
+
+    if (next === "therapist") {
       go({ name: "therapist" });
       return;
     }
@@ -266,8 +388,14 @@ export default function App() {
         }
 
         setLoginError(null);
-        setStored(saveStoredPrescription(remote));
+        rememberRole("patient");
+        setPatientStored(savePatientPlan(remote));
         setProfile(createPatientProfile(name, normalizeClinicCode(trimmedCode)));
+        try {
+          await registerClinicPatient(trimmedCode, name);
+        } catch {
+          // Patient can still use the plan locally if the roster write fails.
+        }
         go({ name: "home" });
       } catch (error) {
         setLoginError(error instanceof Error ? error.message : "Could not reach the clinic.");
@@ -282,13 +410,18 @@ export default function App() {
     }
 
     setLoginError(null);
+    rememberRole("patient");
+    setPatientStored(savePatientPlan(stored));
     setProfile(createPatientProfile(name, plan.accessCode));
     go({ name: "home" });
   }
 
   function handleSwitchUser() {
     clearPatientProfile();
+    clearPatientPlan();
+    clearActiveRole();
     setProfile(null);
+    setPatientStored(null);
     go({ name: "role" });
   }
 
@@ -302,7 +435,7 @@ export default function App() {
     }
   }
 
-  function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
+  async function handleFinishSession(outcome: SessionOutcome, sessionPlan: Prescription, readiness: number | null) {
     if (!profile) {
       go({ name: "role" });
       return;
@@ -321,18 +454,23 @@ export default function App() {
 
     setProfile(updated);
 
+    let therapistDelivery: "sent" | "skipped" | "failed" = "skipped";
+
     if (cloudEnabled && sessionClinic && latest) {
-      void publishClinicSession(sessionClinic, updated.name, latest).catch(() => {
-        // Local history still saved.
-      });
+      try {
+        await publishSessionToTherapist(sessionClinic, updated.name, latest);
+        therapistDelivery = "sent";
+      } catch {
+        therapistDelivery = "failed";
+      }
     }
 
-    go({ name: "summary", record: latest });
+    go({ name: "summary", record: latest, clinicCode: sessionClinic, therapistDelivery });
   }
 
   async function handlePublish(nextPlan: Prescription) {
     const local = publishPrescription(nextPlan);
-    setStored(local);
+    setTherapistStored(local);
 
     if (!cloudEnabled) {
       return;
@@ -342,7 +480,17 @@ export default function App() {
   }
 
   function handleResetPrescription() {
-    setStored(resetPrescription());
+    setTherapistStored(resetPrescription());
+  }
+
+  async function refreshClinicRoster() {
+    if (!clinicCode) {
+      return;
+    }
+
+    const roster = await fetchClinicRoster(clinicCode);
+    setClinicSessions(roster.sessions);
+    setClinicJoins(roster.joins);
   }
 
   if (route.name === "therapist") {
@@ -351,14 +499,18 @@ export default function App() {
         stored={stored}
         initialDraft={route.draft}
         patient={profile}
-        clinicSessions={clinicSessions}
+        clinicPatients={clinicPatients}
         exerciseReferences={exerciseReferences}
         cloudEnabled={cloudEnabled}
         onPublish={handlePublish}
         onResetToDefault={handleResetPrescription}
-        onBack={() => go({ name: "role" })}
+        onBack={() => {
+          clearActiveRole();
+          go({ name: "role" });
+        }}
         onPreviewAsPatient={() => go(profile ? { name: "home" } : { name: "login" })}
         onOpenInbox={() => go({ name: "inbox" })}
+        onRefreshClinic={refreshClinicRoster}
         onRecordCustomExercise={(draft) => go({ name: "therapist-record", draft })}
       />
     );
@@ -393,9 +545,11 @@ export default function App() {
       <TherapistInboxScreen
         patient={profile}
         clinicSessions={clinicSessions}
+        clinicPatients={clinicPatients}
         clinicCode={clinicCode}
         cloudEnabled={cloudEnabled}
         onOpenChat={(patientName) => go({ name: "therapistChat", patientName })}
+        onRefreshSessions={refreshClinicRoster}
         onBack={() => go({ name: "therapist" })}
       />
     );
@@ -418,11 +572,13 @@ export default function App() {
   if (route.name === "login") {
     return (
       <LoginScreen
-        therapistName={plan.therapist}
+        therapistName={patientStored?.plan.therapist ?? plan.therapist}
         cloudEnabled={cloudEnabled}
         onLogin={handleLogin}
-        requiresCode={cloudEnabled || Boolean(plan.accessCode)}
+        requiresCode={cloudEnabled || Boolean(patientStored?.plan.accessCode ?? plan.accessCode)}
         loginError={loginError}
+        initialName={profile?.name ?? ""}
+        initialCode={profile?.clinicCode ?? patientStored?.plan.accessCode ?? ""}
         onBack={() => {
           setLoginError(null);
           go({ name: "role" });
@@ -432,7 +588,18 @@ export default function App() {
   }
 
   if (route.name === "role" || !profile) {
-    return <RoleSelectScreen cloudEnabled={cloudEnabled} onSelectRole={handleSelectRole} />;
+    return (
+      <RoleSelectScreen
+        cloudEnabled={cloudEnabled}
+        patientResume={
+          profile
+            ? { name: profile.name, therapist: patientStored?.plan.therapist ?? plan.therapist }
+            : null
+        }
+        therapistResume={Boolean(therapistStored.publishedAt || therapistStored.plan.accessCode)}
+        onSelectRole={handleSelectRole}
+      />
+    );
   }
 
   if (route.name === "readiness") {
@@ -454,7 +621,7 @@ export default function App() {
       <SessionScreen
         key={sessionPlan.steps.map((step) => `${step.id}:${step.exerciseId}:${step.targetReps}`).join("|")}
         plan={sessionPlan}
-        onFinish={(outcome) => handleFinishSession(outcome, sessionPlan, readiness)}
+        onFinish={(outcome) => void handleFinishSession(outcome, sessionPlan, readiness)}
         onExit={() => go({ name: "home" })}
       />
     );
@@ -465,6 +632,8 @@ export default function App() {
       <SessionSummaryScreen
         record={route.record}
         profile={profile}
+        clinicCode={route.clinicCode}
+        therapistDelivery={route.therapistDelivery}
         onDone={() => go({ name: "home" })}
         onViewProgress={() => go({ name: "progress" })}
       />

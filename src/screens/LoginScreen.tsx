@@ -6,6 +6,8 @@ type Props = {
   cloudEnabled: boolean;
   requiresCode: boolean;
   loginError: string | null;
+  initialName?: string;
+  initialCode?: string;
   onLogin: (name: string, code: string) => void | Promise<void>;
   onBack: () => void;
 };
@@ -15,11 +17,13 @@ export default function LoginScreen({
   cloudEnabled,
   requiresCode,
   loginError,
+  initialName = "",
+  initialCode = "",
   onLogin,
   onBack,
 }: Props) {
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
+  const [name, setName] = useState(initialName);
+  const [code, setCode] = useState(initialCode);
   const [busy, setBusy] = useState(false);
   const trimmed = name.trim();
 
