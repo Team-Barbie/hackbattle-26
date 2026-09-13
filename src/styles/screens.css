@@ -703,6 +703,49 @@
   font-weight: 700;
 }
 
+/* ---------- Confetti (session-complete celebration) ---------- */
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti__piece {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 14px;
+  opacity: 0.95;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: forwards;
+}
+
+.confetti__piece--black {
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.confetti__piece--white {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(var(--confetti-drift), 100vh) rotate(var(--confetti-rotate));
+    opacity: 0;
+  }
+}
+
 .result-list {
   display: flex;
   flex-direction: column;
