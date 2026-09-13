@@ -368,6 +368,7 @@
   font-family: var(--font-mono);
   font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1;
 }
 
 .index-bubble.is-now {

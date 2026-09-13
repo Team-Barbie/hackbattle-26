@@ -355,6 +355,7 @@
   font-family: var(--font-mono);
   font-size: 1.6rem;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: -0.04em;
 }
 
