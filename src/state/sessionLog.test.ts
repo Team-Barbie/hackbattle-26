@@ -10,6 +10,7 @@ describe("formatSessionLogMessage", () => {
       therapist: "Dr. Mehta",
       readiness: 3,
       durationMs: 125000,
+      earlyExitReason: null,
       steps: [
         {
           exerciseId: "squat",
@@ -27,5 +28,22 @@ describe("formatSessionLogMessage", () => {
     expect(body).toContain("8/10 reps");
     expect(body).toContain("Squat 8/10");
     expect(body).toContain("Shallow squat");
+  });
+
+  it("includes the patient's given reason when the session ended early", () => {
+    const body = formatSessionLogMessage("Pranav", "123", {
+      id: "session-2",
+      date: "2026-09-13T10:00:00.000Z",
+      planTitle: "Today's session",
+      therapist: "Dr. Mehta",
+      readiness: null,
+      durationMs: 60000,
+      earlyExitReason: "Pain or discomfort",
+      steps: [
+        { exerciseId: "squat", targetReps: 10, reps: 3, goodReps: 3, flaggedReps: 0, mainIssue: null },
+      ],
+    });
+
+    expect(body).toContain("Stopped early: Pain or discomfort");
   });
 });

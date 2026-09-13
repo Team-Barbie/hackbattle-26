@@ -13,7 +13,7 @@ import ProgramScreen from "./screens/ProgramScreen";
 import ProgressScreen from "./screens/ProgressScreen";
 import ReadinessScreen from "./screens/ReadinessScreen";
 import RoleSelectScreen, { type Role } from "./screens/RoleSelectScreen";
-import SessionScreen, { type SessionOutcome } from "./screens/SessionScreen";
+import SessionScreen, { PAIN_DISCOMFORT_REASON, type SessionOutcome } from "./screens/SessionScreen";
 import SessionSummaryScreen from "./screens/SessionSummaryScreen";
 import TherapistInboxScreen from "./screens/TherapistInboxScreen";
 import TherapistScreen from "./screens/TherapistScreen";
@@ -79,6 +79,12 @@ type Route =
   | { name: "session"; plan: Prescription; readiness: number | null }
   | {
       name: "summary";
+      record: SessionRecord;
+      clinicCode?: string;
+      therapistDelivery?: "sent" | "skipped" | "failed";
+    }
+  | {
+      name: "painChat";
       record: SessionRecord;
       clinicCode?: string;
       therapistDelivery?: "sent" | "skipped" | "failed";
@@ -448,6 +454,7 @@ export default function App() {
       readiness,
       durationMs: outcome.durationMs,
       steps: outcome.steps,
+      earlyExitReason: outcome.earlyExitReason,
     });
     const latest = updated.sessions[updated.sessions.length - 1];
     const sessionClinic = normalizeClinicCode(updated.clinicCode ?? sessionPlan.accessCode);
@@ -463,6 +470,11 @@ export default function App() {
       } catch {
         therapistDelivery = "failed";
       }
+    }
+
+    if (outcome.earlyExitReason === PAIN_DISCOMFORT_REASON) {
+      go({ name: "painChat", record: latest, clinicCode: sessionClinic, therapistDelivery });
+      return;
     }
 
     go({ name: "summary", record: latest, clinicCode: sessionClinic, therapistDelivery });
@@ -636,6 +648,29 @@ export default function App() {
         therapistDelivery={route.therapistDelivery}
         onDone={() => go({ name: "home" })}
         onViewProgress={() => go({ name: "progress" })}
+      />
+    );
+  }
+
+  if (route.name === "painChat") {
+    const continueToSummary = () =>
+      go({
+        name: "summary",
+        record: route.record,
+        clinicCode: route.clinicCode,
+        therapistDelivery: route.therapistDelivery,
+      });
+
+    return (
+      <ChatScreen
+        peerName={route.record.therapist || plan.therapist}
+        patientName={profile.name}
+        sender="patient"
+        clinicCode={clinicCode}
+        cloudEnabled={cloudEnabled}
+        promptBanner="You mentioned pain or discomfort — let your therapist know where it hurts before you go."
+        onContinue={continueToSummary}
+        continueLabel="Continue to summary"
       />
     );
   }
