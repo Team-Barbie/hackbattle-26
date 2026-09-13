@@ -989,6 +989,9 @@
 }
 
 .row__end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-mono);
   color: var(--text-dim);
   font-size: 0.86rem;

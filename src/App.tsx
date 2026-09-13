@@ -345,6 +345,9 @@ export default function App() {
     return (
       <TherapistInboxScreen
         patient={profile}
+        clinicSessions={clinicSessions}
+        clinicCode={clinicCode}
+        cloudEnabled={cloudEnabled}
         onOpenChat={(patientName) => go({ name: "therapistChat", patientName })}
         onBack={() => go({ name: "therapist" })}
       />
@@ -352,7 +355,17 @@ export default function App() {
   }
 
   if (route.name === "therapistChat") {
-    return <ChatScreen peerName={route.patientName} onBack={() => go({ name: "inbox" })} />;
+    return (
+      <ChatScreen
+        key={route.patientName}
+        peerName={route.patientName}
+        patientName={route.patientName}
+        sender="therapist"
+        clinicCode={clinicCode}
+        cloudEnabled={cloudEnabled}
+        onBack={() => go({ name: "inbox" })}
+      />
+    );
   }
 
   if (route.name === "login") {
@@ -441,7 +454,15 @@ export default function App() {
       page = <ProgressScreen profile={profile} />;
       break;
     case "chat":
-      page = <ChatScreen peerName={plan.therapist} />;
+      page = (
+        <ChatScreen
+          peerName={plan.therapist}
+          patientName={profile.name}
+          sender="patient"
+          clinicCode={clinicCode}
+          cloudEnabled={cloudEnabled}
+        />
+      );
       break;
     case "profile":
       page = (
