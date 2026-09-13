@@ -14,7 +14,7 @@ import {
   type PlanStep,
   type Prescription,
 } from "../exercises/prescription";
-import { type ClinicSession } from "../state/clinicCloud";
+import { type ClinicSession, type SharedExerciseReference } from "../state/clinicCloud";
 import { sharedPlanUrl } from "../state/prescriptionStore";
 import {
   currentStreak,
@@ -30,6 +30,7 @@ type Props = {
   initialDraft?: Prescription;
   patient: PatientProfile | null;
   clinicSessions: ClinicSession[];
+  exerciseReferences: SharedExerciseReference[];
   cloudEnabled: boolean;
   onPublish: (plan: Prescription) => void | Promise<void>;
   onResetToDefault: () => void;
@@ -65,6 +66,7 @@ export default function TherapistScreen({
   initialDraft,
   patient,
   clinicSessions,
+  exerciseReferences,
   cloudEnabled,
   onPublish,
   onResetToDefault,
@@ -130,8 +132,9 @@ export default function TherapistScreen({
     touch();
   }
 
-  function addStep(exerciseId: ExerciseId) {
-    const reference = exerciseId === "custom" ? customExercise ?? undefined : undefined;
+  function addStep(exerciseId: ExerciseId, sharedReference?: SharedExerciseReference) {
+    const reference =
+      exerciseId === "custom" ? sharedReference?.reference ?? customExercise ?? undefined : undefined;
     setDraft((current) => ({
       ...current,
       steps: [...current.steps, createPlanStep(exerciseId, 8, reference)],
@@ -383,6 +386,28 @@ export default function TherapistScreen({
               </button>
             </div>
           </div>
+
+          {exerciseReferences.length > 0 && (
+            <div>
+              <p className="label" style={{ marginBottom: 8 }}>
+                Shared exercise reference library
+              </p>
+              <div className="picker">
+                {exerciseReferences.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className="picker__chip"
+                    onClick={() => addStep("custom", item)}
+                    title={`Recorded by ${item.therapist}`}
+                  >
+                    <Icon name="plus" />
+                    {item.reference.name} · {item.therapist}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {publishError && <p className="notice notice--error">{publishError}</p>}
           {missingCode && (

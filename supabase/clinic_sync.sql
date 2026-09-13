@@ -20,6 +20,15 @@ create table if not exists public.clinic_sessions (
   payload jsonb not null
 );
 
+-- Shared therapist-authored movement references. These are intentionally
+-- independent of a patient plan so saving a recording makes it reusable.
+create table if not exists public.exercise_references (
+  id uuid primary key default gen_random_uuid(),
+  therapist text not null check (char_length(therapist) between 1 and 80),
+  reference jsonb not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists clinic_sessions_clinic_recorded_idx
   on public.clinic_sessions (clinic_code, recorded_at desc);
 
@@ -41,10 +50,12 @@ create index if not exists clinic_messages_thread_idx
 alter table public.clinic_plans enable row level security;
 alter table public.clinic_sessions enable row level security;
 alter table public.clinic_messages enable row level security;
+alter table public.exercise_references enable row level security;
 
 grant select, insert, update on public.clinic_plans to anon, authenticated;
 grant select, insert on public.clinic_sessions to anon, authenticated;
 grant select, insert on public.clinic_messages to anon, authenticated;
+grant select, insert on public.exercise_references to anon, authenticated;
 
 drop policy if exists clinic_plans_select on public.clinic_plans;
 drop policy if exists clinic_plans_insert on public.clinic_plans;
@@ -53,6 +64,8 @@ drop policy if exists clinic_sessions_select on public.clinic_sessions;
 drop policy if exists clinic_sessions_insert on public.clinic_sessions;
 drop policy if exists clinic_messages_select on public.clinic_messages;
 drop policy if exists clinic_messages_insert on public.clinic_messages;
+drop policy if exists exercise_references_select on public.exercise_references;
+drop policy if exists exercise_references_insert on public.exercise_references;
 
 create policy clinic_plans_select
   on public.clinic_plans
@@ -97,6 +110,18 @@ create policy clinic_messages_insert
   to anon, authenticated
   with check (true);
 
+create policy exercise_references_select
+  on public.exercise_references
+  for select
+  to anon, authenticated
+  using (true);
+
+create policy exercise_references_insert
+  on public.exercise_references
+  for insert
+  to anon, authenticated
+  with check (true);
+
 do $$
 begin
   if not exists (
@@ -136,5 +161,18 @@ begin
       and rel.relname = 'clinic_messages'
   ) then
     alter publication supabase_realtime add table public.clinic_messages;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_publication_rel prel
+    join pg_publication pub on pub.oid = prel.prpubid
+    join pg_class rel on rel.oid = prel.prrelid
+    join pg_namespace nsp on nsp.oid = rel.relnamespace
+    where pub.pubname = 'supabase_realtime'
+      and nsp.nspname = 'public'
+      and rel.relname = 'exercise_references'
+  ) then
+    alter publication supabase_realtime add table public.exercise_references;
   end if;
 end $$;

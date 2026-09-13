@@ -8,7 +8,7 @@ type Props = {
   onRestartPlan: () => void;
   className?: string;
   allowReferenceAuthoring?: boolean;
-  onReferenceSaved?: (reference: ReferenceExercise) => void;
+  onReferenceSaved?: (reference: ReferenceExercise) => void | Promise<void>;
 };
 
 export default function SessionControls({
@@ -21,13 +21,33 @@ export default function SessionControls({
   const { isLive, isBusy, exerciseId, recordingReference } = session;
   const isCustom = exerciseId === "custom";
   const [referenceName, setReferenceName] = useState("");
+  const [savingReference, setSavingReference] = useState(false);
+  const [referenceSaveError, setReferenceSaveError] = useState<string | null>(null);
+  const [referenceAwaitingRetry, setReferenceAwaitingRetry] = useState<ReferenceExercise | null>(null);
 
-  function handleSaveReference(event: FormEvent) {
+  async function saveToSharedLibrary(reference: ReferenceExercise) {
+    setSavingReference(true);
+    setReferenceSaveError(null);
+    setReferenceAwaitingRetry(reference);
+
+    try {
+      await onReferenceSaved?.(reference);
+      setReferenceAwaitingRetry(null);
+    } catch (error) {
+      setReferenceSaveError(
+        error instanceof Error ? error.message : "Could not save this exercise to the shared library.",
+      );
+    } finally {
+      setSavingReference(false);
+    }
+  }
+
+  async function handleSaveReference(event: FormEvent) {
     event.preventDefault();
     const saved = session.savePendingReference(referenceName);
 
     if (saved) {
-      onReferenceSaved?.(saved);
+      await saveToSharedLibrary(saved);
     }
   }
 
@@ -80,11 +100,31 @@ export default function SessionControls({
                 required
               />
             </label>
-            <button type="submit" className="btn btn--sm" disabled={!referenceName.trim()}>
+            <button
+              type="submit"
+              className="btn btn--sm"
+              disabled={!referenceName.trim() || savingReference}
+            >
               <Icon name="check" />
-              Save exercise
+              {savingReference ? "Saving…" : "Save exercise"}
             </button>
           </form>
+        )}
+
+        {referenceSaveError && (
+          <div className="notice notice--error btn--span">
+            <p>{referenceSaveError}</p>
+            {referenceAwaitingRetry && (
+              <button
+                type="button"
+                className="btn btn--sm btn--outline"
+                onClick={() => void saveToSharedLibrary(referenceAwaitingRetry)}
+                disabled={savingReference}
+              >
+                {savingReference ? "Retrying…" : "Retry shared save"}
+              </button>
+            )}
+          </div>
         )}
 
         {isCustom && allowReferenceAuthoring && session.referenceExercise && !session.pendingReference && (

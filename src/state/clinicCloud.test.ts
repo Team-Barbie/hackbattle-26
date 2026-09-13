@@ -7,6 +7,7 @@ import {
   parseClinicMessageRow,
   parseClinicPlanRow,
   parseClinicSessionRow,
+  parseExerciseReferenceRow,
 } from "./clinicCloud";
 
 describe("normalizeClinicCode", () => {
@@ -73,6 +74,37 @@ describe("parseClinicSessionRow", () => {
     expect(session?.patientName).toBe("Asha");
     expect(session?.id).toBe("session-1");
     expect(session?.steps[0]?.reps).toBe(8);
+  });
+});
+
+describe("parseExerciseReferenceRow", () => {
+  it("reads a reusable therapist exercise reference", () => {
+    const item = parseExerciseReferenceRow({
+      id: "reference-1",
+      therapist: "Dr. Mehta",
+      created_at: "2026-09-13T10:00:00.000Z",
+      reference: {
+        version: 1,
+        name: "Seated ankle rotation",
+        recordedAt: "2026-09-13T09:59:00.000Z",
+        durationMs: 1800,
+        frames: [[0.5, 0.5, 0.8, 0.8]],
+      },
+    });
+
+    expect(item?.reference.name).toBe("Seated ankle rotation");
+    expect(item?.therapist).toBe("Dr. Mehta");
+  });
+
+  it("rejects malformed reference material", () => {
+    expect(
+      parseExerciseReferenceRow({
+        id: "reference-2",
+        therapist: "Dr. Mehta",
+        created_at: "2026-09-13T10:00:00.000Z",
+        reference: { name: "Missing pose frames" },
+      }),
+    ).toBeNull();
   });
 });
 

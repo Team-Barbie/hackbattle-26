@@ -1,4 +1,5 @@
 import { getSupabase, isClinicCloudEnabled } from "./supabaseClient";
+import { parseReferenceExercise, type ReferenceExercise } from "../exercises/custom/referenceExercise";
 import { normalizeClinicCode } from "./clinicCode";
 import { sanitisePrescription, type StoredPrescription } from "./prescriptionStore";
 import { sanitiseSessionRecord, type SessionRecord } from "./patientProfile";
@@ -24,6 +25,13 @@ export type ClinicConversation = {
   sessionCount: number;
 };
 
+export type SharedExerciseReference = {
+  id: string;
+  therapist: string;
+  createdAt: string;
+  reference: ReferenceExercise;
+};
+
 type ClinicPlanRow = {
   clinic_code: string;
   therapist: string;
@@ -47,6 +55,13 @@ type ClinicMessageRow = {
   sender: string;
   body: string;
   sent_at: string;
+};
+
+type ExerciseReferenceRow = {
+  id: string;
+  therapist: string;
+  reference: unknown;
+  created_at: string;
 };
 
 const MESSAGE_MAX_LENGTH = 1000;
@@ -276,6 +291,114 @@ export function mergeClinicInbox(
   });
 }
 
+export function parseExerciseReferenceRow(
+  row: ExerciseReferenceRow | null | undefined,
+): SharedExerciseReference | null {
+  if (!row) {
+    return null;
+  }
+
+  const reference = parseReferenceExercise(row.reference);
+
+  if (!reference) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    therapist: row.therapist.trim() || "Therapist",
+    createdAt: row.created_at,
+    reference,
+  };
+}
+
+export async function fetchExerciseReferences(): Promise<SharedExerciseReference[]> {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("exercise_references")
+    .select("id, therapist, reference, created_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    throw new Error(clinicErrorMessage(error));
+  }
+
+  return (data as ExerciseReferenceRow[] | null)?.flatMap((row) => {
+    const item = parseExerciseReferenceRow(row);
+    return item ? [item] : [];
+  }) ?? [];
+}
+
+export async function publishExerciseReference(
+  therapist: string,
+  reference: ReferenceExercise,
+): Promise<SharedExerciseReference> {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env, then restart the app.");
+  }
+
+  const { data, error } = await supabase
+    .from("exercise_references")
+    .insert({
+      therapist: therapist.trim().slice(0, 80) || "Therapist",
+      reference,
+    })
+    .select("id, therapist, reference, created_at")
+    .single();
+
+  if (error) {
+    throw new Error(clinicErrorMessage(error));
+  }
+
+  const saved = parseExerciseReferenceRow(data as ExerciseReferenceRow | null);
+
+  if (!saved) {
+    throw new Error("The exercise reference was saved but could not be read back.");
+  }
+
+  return saved;
+}
+
+export function subscribeExerciseReferences(
+  onReference: (reference: SharedExerciseReference) => void,
+): () => void {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return () => undefined;
+  }
+
+  const channel = supabase
+    .channel("exercise-reference-library")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "exercise_references",
+      },
+      (payload) => {
+        const reference = parseExerciseReferenceRow(payload.new as ExerciseReferenceRow);
+        if (reference) {
+          onReference(reference);
+        }
+      },
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
 export async function fetchClinicPlan(code: string): Promise<StoredPrescription | null> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
@@ -452,6 +575,40 @@ async function fetchSessionMessages(clinicCode: string, patientName?: string): P
   return applyChatHistoryClears(messages, clears);
 }
 
+async function fetchChatClears(
+  clinicCode: string,
+  patientName?: string,
+): Promise<Array<{ patientName: string; clearedAt: string }>> {
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("clinic_sessions")
+    .select("id, clinic_code, patient_name, recorded_at, payload")
+    .eq("clinic_code", clinicCode)
+    .order("recorded_at", { ascending: true })
+    .limit(400);
+
+  if (error) {
+    throw new Error(clinicErrorMessage(error));
+  }
+
+  const threadName = patientName?.trim();
+
+  return ((data as ClinicSessionRow[] | null) ?? []).flatMap((row) => {
+    const cleared = parseChatClearedAt(row);
+
+    if (!cleared || (threadName && !samePatient(cleared.patientName, threadName))) {
+      return [];
+    }
+
+    return [cleared];
+  });
+}
+
 export async function fetchClinicMessages(code: string, patientName?: string): Promise<ClinicMessage[]> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
@@ -462,9 +619,12 @@ export async function fetchClinicMessages(code: string, patientName?: string): P
 
   if (preferDedicatedMessages !== false) {
     try {
-      const messages = await fetchDedicatedMessages(clinicCode, patientName);
+      const [messages, clears] = await Promise.all([
+        fetchDedicatedMessages(clinicCode, patientName),
+        fetchChatClears(clinicCode, patientName),
+      ]);
       preferDedicatedMessages = true;
-      return messages;
+      return applyChatHistoryClears(messages, clears);
     } catch (error) {
       if (!error || typeof error !== "object" || !isMissingTableError(error as { code?: string; message: string })) {
         throw error instanceof Error ? error : new Error("Could not load messages.");

@@ -18,14 +18,18 @@ import SessionSummaryScreen from "./screens/SessionSummaryScreen";
 import TherapistInboxScreen from "./screens/TherapistInboxScreen";
 import TherapistScreen from "./screens/TherapistScreen";
 import {
+  fetchExerciseReferences,
   fetchClinicPlan,
   fetchClinicSessions,
   isClinicCloudEnabled,
   normalizeClinicCode,
   publishClinicPlan,
   publishClinicSession,
+  publishExerciseReference,
   subscribeClinic,
+  subscribeExerciseReferences,
   type ClinicSession,
+  type SharedExerciseReference,
 } from "./state/clinicCloud";
 import {
   clearPatientProfile,
@@ -127,6 +131,7 @@ export default function App() {
     consumeSharedPlanFromUrl() ?? loadStoredPrescription(),
   );
   const [clinicSessions, setClinicSessions] = useState<ClinicSession[]>([]);
+  const [exerciseReferences, setExerciseReferences] = useState<SharedExerciseReference[]>([]);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(() =>
     loadPatientProfile() ? { name: "home" } : { name: "role" },
@@ -194,6 +199,40 @@ export default function App() {
       unsubscribe();
     };
   }, [clinicCode, cloudEnabled]);
+
+  useEffect(() => {
+    if (!cloudEnabled) {
+      setExerciseReferences([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchExerciseReferences()
+      .then((references) => {
+        if (!cancelled) {
+          setExerciseReferences(references);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setExerciseReferences([]);
+        }
+      });
+
+    const unsubscribe = subscribeExerciseReferences((reference) => {
+      setExerciseReferences((current) =>
+        current.some((item) => item.id === reference.id)
+          ? current
+          : [reference, ...current].slice(0, 100),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [cloudEnabled]);
 
   function handleSelectRole(role: Role) {
     if (role === "therapist") {
@@ -308,6 +347,7 @@ export default function App() {
         initialDraft={route.draft}
         patient={profile}
         clinicSessions={clinicSessions}
+        exerciseReferences={exerciseReferences}
         cloudEnabled={cloudEnabled}
         onPublish={handlePublish}
         onResetToDefault={handleResetPrescription}
@@ -324,17 +364,19 @@ export default function App() {
       <SessionScreen
         plan={referenceRecordingPlan(route.draft)}
         referenceAuthoring
-        onReferenceSaved={(referenceExercise) =>
+        onReferenceSaved={async (referenceExercise) => {
+          if (cloudEnabled) {
+            const saved = await publishExerciseReference(route.draft.therapist, referenceExercise);
+            setExerciseReferences((current) =>
+              current.some((item) => item.id === saved.id) ? current : [saved, ...current],
+            );
+          }
+
           go({
             name: "therapist",
-            draft: {
-              ...route.draft,
-              steps: route.draft.steps.map((step) =>
-                step.exerciseId === "custom" ? { ...step, referenceExercise } : step,
-              ),
-            },
-          })
-        }
+            draft: route.draft,
+          });
+        }}
         onFinish={() => go({ name: "therapist", draft: route.draft })}
         onExit={() => go({ name: "therapist", draft: route.draft })}
       />
