@@ -69,7 +69,7 @@ export default function ChatScreen({
       }
     })();
 
-    let unsubscribe = () => undefined;
+    let unsubscribe: () => void = () => undefined;
 
     try {
       unsubscribe = subscribeClinic(
