@@ -16,8 +16,10 @@ export type SessionOutcome = {
   earlyExitReason: string | null;
 };
 
+export const PAIN_DISCOMFORT_REASON = "Pain or discomfort";
+
 const EARLY_EXIT_REASONS = [
-  "Pain or discomfort",
+  PAIN_DISCOMFORT_REASON,
   "Ran out of time",
   "Feeling tired",
   "Technical issue",

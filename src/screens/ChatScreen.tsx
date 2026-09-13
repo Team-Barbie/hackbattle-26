@@ -18,6 +18,11 @@ type Props = {
   cloudEnabled: boolean;
   /** Present when reached from the therapist's inbox; absent for the patient tab. */
   onBack?: () => void;
+  /** Shown above the thread when this screen was opened mid-flow to ask something specific. */
+  promptBanner?: string;
+  /** Renders a persistent action below the composer to resume an interrupted flow (e.g. finishing a session). */
+  onContinue?: () => void;
+  continueLabel?: string;
 };
 
 function sameThread(message: ClinicMessage, patientName: string): boolean {
@@ -31,6 +36,9 @@ export default function ChatScreen({
   clinicCode,
   cloudEnabled,
   onBack,
+  promptBanner,
+  onContinue,
+  continueLabel,
 }: Props) {
   const [messages, setMessages] = useState<ClinicMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -199,6 +207,8 @@ export default function ChatScreen({
         </p>
       </header>
 
+      {promptBanner && <p className="notice notice--accent">{promptBanner}</p>}
+
       <section className={`card chat-panel${messages.length === 0 ? " is-empty" : ""}`} aria-label="Conversation">
         {loading ? (
           <div className="empty">
@@ -251,6 +261,12 @@ export default function ChatScreen({
           <Icon name="forward" />
         </button>
       </form>
+
+      {onContinue && (
+        <button type="button" className="btn btn--lg btn--block" onClick={onContinue}>
+          {continueLabel ?? "Continue"}
+        </button>
+      )}
     </div>
   );
 }
