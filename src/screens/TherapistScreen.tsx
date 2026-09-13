@@ -261,7 +261,7 @@ export default function TherapistScreen({
               Add at least one below before publishing.
             </p>
           ) : (
-            <ol className="list">
+            <ol className="editor-steps">
               {draft.steps.map((step, index) => (
                 <li key={step.id} className="editor-step">
                   <span className="row__index">{index + 1}</span>

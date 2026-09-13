@@ -769,13 +769,17 @@
 
 .editor-step {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  grid-template-columns: 32px minmax(140px, 1fr) minmax(132px, auto) auto;
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--bg-2);
+}
+
+.editor-step .row__index {
+  pointer-events: none;
 }
 
 .editor-step .field select {
@@ -1037,7 +1041,12 @@
   }
 
   .editor-step {
-    grid-template-columns: 30px minmax(0, 1fr);
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .editor-step .stepper {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .editor-step__tools {

@@ -38,8 +38,34 @@ export default function ChatScreen({
   const [sending, setSending] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [loading, setLoading] = useState(cloudEnabled && Boolean(clinicCode));
+  const [reloading, setReloading] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const ready = cloudEnabled && Boolean(clinicCode) && Boolean(patientName.trim());
+
+  async function loadThread(silent = false) {
+    if (!ready) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+
+    if (silent) {
+      setReloading(true);
+    } else {
+      setLoading(true);
+    }
+
+    setError(null);
+
+    try {
+      setMessages(await fetchClinicMessages(clinicCode, patientName));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load messages.");
+    } finally {
+      setLoading(false);
+      setReloading(false);
+    }
+  }
 
   useEffect(() => {
     if (!ready) {
@@ -48,28 +74,9 @@ export default function ChatScreen({
       return;
     }
 
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+    void loadThread();
 
-    void (async () => {
-      try {
-        const thread = await fetchClinicMessages(clinicCode, patientName);
-        if (!cancelled) {
-          setMessages(thread);
-        }
-      } catch (cause) {
-        if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : "Could not load messages.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    let unsubscribe: () => void = () => undefined;
+    let unsubscribe = () => undefined;
 
     try {
       unsubscribe = subscribeClinic(
@@ -100,7 +107,6 @@ export default function ChatScreen({
     }
 
     return () => {
-      cancelled = true;
       unsubscribe();
     };
   }, [clinicCode, patientName, ready]);
@@ -131,6 +137,7 @@ export default function ChatScreen({
       const sent = await sendClinicMessage(clinicCode, patientName, sender, body);
       setDraft("");
       setMessages((current) => (current.some((item) => item.id === sent.id) ? current : [...current, sent]));
+      await loadThread(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not send that message.");
     } finally {
@@ -183,14 +190,25 @@ export default function ChatScreen({
         <p className="eyebrow">Messages</p>
         <div className="chat-heading">
           <h1>{peerName}</h1>
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            disabled={!ready || clearing || messages.length === 0}
-            onClick={() => void handleClear()}
-          >
-            {clearing ? "Clearing…" : "Clear chat"}
-          </button>
+          <div className="chat-heading__actions">
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={!ready || loading || reloading}
+              onClick={() => void loadThread(true)}
+            >
+              <Icon name="reset" />
+              {reloading ? "Reloading…" : "Reload"}
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={!ready || clearing || messages.length === 0}
+              onClick={() => void handleClear()}
+            >
+              {clearing ? "Clearing…" : "Clear chat"}
+            </button>
+          </div>
         </div>
         <p className="lede">
           {onBack

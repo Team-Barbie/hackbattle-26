@@ -401,6 +401,17 @@ export default function App() {
         clinicCode={clinicCode}
         cloudEnabled={cloudEnabled}
         onOpenChat={(patientName) => go({ name: "therapistChat", patientName })}
+        onRefreshSessions={async () => {
+          if (!clinicCode) {
+            return;
+          }
+
+          try {
+            setClinicSessions(await fetchClinicSessions(clinicCode));
+          } catch {
+            // Keep the last inbox list if the clinic is unreachable.
+          }
+        }}
         onBack={() => go({ name: "therapist" })}
       />
     );

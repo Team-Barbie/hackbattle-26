@@ -625,6 +625,24 @@ async function fetchChatClears(
   });
 }
 
+function mergeMessages(groups: ClinicMessage[][]): ClinicMessage[] {
+  const byId = new Map<string, ClinicMessage>();
+
+  for (const group of groups) {
+    for (const message of group) {
+      byId.set(message.id, message);
+    }
+  }
+
+  return [...byId.values()].sort((left, right) => {
+    if (left.sentAt !== right.sentAt) {
+      return left.sentAt.localeCompare(right.sentAt);
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export async function fetchClinicMessages(code: string, patientName?: string): Promise<ClinicMessage[]> {
   const supabase = getSupabase();
   const clinicCode = normalizeClinicCode(code);
@@ -633,14 +651,12 @@ export async function fetchClinicMessages(code: string, patientName?: string): P
     return [];
   }
 
+  let dedicated: ClinicMessage[] = [];
+
   if (preferDedicatedMessages !== false) {
     try {
-      const [messages, clears] = await Promise.all([
-        fetchDedicatedMessages(clinicCode, patientName),
-        fetchChatClears(clinicCode, patientName),
-      ]);
+      dedicated = await fetchDedicatedMessages(clinicCode, patientName);
       preferDedicatedMessages = true;
-      return applyChatHistoryClears(messages, clears);
     } catch (error) {
       if (!error || typeof error !== "object" || !isMissingTableError(error as { code?: string; message: string })) {
         throw error instanceof Error ? error : new Error("Could not load messages.");
@@ -650,7 +666,12 @@ export async function fetchClinicMessages(code: string, patientName?: string): P
     }
   }
 
-  return fetchSessionMessages(clinicCode, patientName);
+  const [sessionMessages, clears] = await Promise.all([
+    fetchSessionMessages(clinicCode, patientName),
+    fetchChatClears(clinicCode, patientName),
+  ]);
+
+  return applyChatHistoryClears(mergeMessages([sessionMessages, dedicated]), clears);
 }
 
 export async function sendClinicMessage(
