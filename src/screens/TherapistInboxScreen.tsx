@@ -8,6 +8,7 @@ import {
   subscribeClinic,
   type ClinicConversation,
   type ClinicMessage,
+  type ClinicPatient,
   type ClinicSession,
 } from "../state/clinicCloud";
 import { currentStreak, type PatientProfile } from "../state/patientProfile";
@@ -15,6 +16,7 @@ import { currentStreak, type PatientProfile } from "../state/patientProfile";
 type Props = {
   patient: PatientProfile | null;
   clinicSessions: ClinicSession[];
+  clinicPatients?: ClinicPatient[];
   clinicCode: string;
   cloudEnabled: boolean;
   onOpenChat: (patientName: string) => void;
@@ -36,12 +38,13 @@ function conversationPreview(conversation: ClinicConversation, local: PatientPro
     return `${local.sessions.length} sessions · ${currentStreak(local)}-day streak`;
   }
 
-  return "No messages yet";
+  return "Signed in · no messages yet";
 }
 
 export default function TherapistInboxScreen({
   patient,
   clinicSessions,
+  clinicPatients = [],
   clinicCode,
   cloudEnabled,
   onOpenChat,
@@ -111,8 +114,12 @@ export default function TherapistInboxScreen({
   }, [clinicCode, cloudEnabled]);
 
   const conversations = useMemo(
-    () => mergeClinicInbox(clinicSessions, messages, patient ? [patient.name] : []),
-    [clinicSessions, messages, patient],
+    () =>
+      mergeClinicInbox(clinicSessions, messages, [
+        ...(patient ? [patient.name] : []),
+        ...clinicPatients.map((item) => item.name),
+      ]),
+    [clinicPatients, clinicSessions, messages, patient],
   );
 
   return (

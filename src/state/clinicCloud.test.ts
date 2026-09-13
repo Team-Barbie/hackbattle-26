@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   applyChatHistoryClears,
   mergeClinicInbox,
+  mergeClinicPatients,
   normalizeClinicCode,
   parseChatSessionRow,
   parseClinicMessageRow,
   parseClinicPlanRow,
   parseClinicSessionRow,
   parseExerciseReferenceRow,
+  parsePatientJoinedRow,
 } from "./clinicCloud";
 
 describe("normalizeClinicCode", () => {
@@ -241,5 +243,78 @@ describe("mergeClinicInbox", () => {
     expect(inbox[0]?.sessionCount).toBe(1);
     expect(inbox[0]?.lastMessage?.body).toBe("Go a little deeper.");
     expect(inbox[1]?.sessionCount).toBe(0);
+  });
+});
+
+describe("parsePatientJoinedRow", () => {
+  it("reads a sign-in row", () => {
+    expect(
+      parsePatientJoinedRow({
+        id: "join-1",
+        clinic_code: "mehta4",
+        patient_name: "Asha",
+        recorded_at: "2026-09-13T08:00:00.000Z",
+        payload: { kind: "patient_joined" },
+      }),
+    ).toEqual({
+      name: "Asha",
+      clinicCode: "mehta4",
+      joinedAt: "2026-09-13T08:00:00.000Z",
+    });
+  });
+
+  it("ignores workout and chat rows", () => {
+    expect(
+      parsePatientJoinedRow({
+        id: "row-1",
+        clinic_code: "mehta4",
+        patient_name: "Asha",
+        recorded_at: "2026-09-13T10:00:00.000Z",
+        payload: { id: "session-1", steps: [] },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("mergeClinicPatients", () => {
+  it("shows a signed-in patient before they finish a session", () => {
+    const roster = mergeClinicPatients(
+      [],
+      [{ name: "Asha", clinicCode: "mehta4", joinedAt: "2026-09-13T08:00:00.000Z" }],
+    );
+
+    expect(roster).toEqual([
+      {
+        name: "Asha",
+        clinicCode: "mehta4",
+        joinedAt: "2026-09-13T08:00:00.000Z",
+        sessionCount: 0,
+        lastSession: null,
+      },
+    ]);
+  });
+
+  it("dedupes sign-in and workout rows for the same patient", () => {
+    const session = {
+      id: "session-1",
+      date: "2026-09-13T10:00:00.000Z",
+      planTitle: "Home plan",
+      therapist: "Dr. Mehta",
+      readiness: 3,
+      durationMs: 120000,
+      steps: [],
+      patientName: "asha",
+      clinicCode: "mehta4",
+    };
+    const roster = mergeClinicPatients(
+      [session],
+      [{ name: "Asha", clinicCode: "mehta4", joinedAt: "2026-09-13T08:00:00.000Z" }],
+    );
+
+    expect(roster).toHaveLength(1);
+    expect(roster[0]?.name).toBe("Asha");
+    expect(roster[0]?.sessionCount).toBe(1);
+    expect(roster[0]?.lastSession?.id).toBe("session-1");
+    expect(roster[0]?.joinedAt).toBe("2026-09-13T08:00:00.000Z");
   });
 });

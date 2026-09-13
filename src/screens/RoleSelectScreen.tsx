@@ -6,10 +6,8 @@ export type Role = "patient" | "therapist";
 type Props = {
   cloudEnabled: boolean;
   patientResume?: { name: string; therapist: string } | null;
-  therapistResume?: { title: string } | null;
+  therapistResume?: boolean;
   onSelectRole: (role: Role) => void;
-  onContinuePatient?: () => void;
-  onContinueTherapist?: () => void;
 };
 
 export default function RoleSelectScreen({
@@ -17,8 +15,6 @@ export default function RoleSelectScreen({
   patientResume,
   therapistResume,
   onSelectRole,
-  onContinuePatient,
-  onContinueTherapist,
 }: Props) {
   return (
     <div className="screen screen--centered">
@@ -33,21 +29,6 @@ export default function RoleSelectScreen({
         </p>
       </div>
 
-      {(patientResume || therapistResume) && (
-        <div className="resume-list">
-          {patientResume && onContinuePatient && (
-            <button type="button" className="btn btn--block" onClick={onContinuePatient}>
-              Continue as {patientResume.name} · {patientResume.therapist}
-            </button>
-          )}
-          {therapistResume && onContinueTherapist && (
-            <button type="button" className="btn btn--block btn--ghost" onClick={onContinueTherapist}>
-              Continue in studio · {therapistResume.title}
-            </button>
-          )}
-        </div>
-      )}
-
       <div className="role-grid">
         <button type="button" className="role-card" onClick={() => onSelectRole("patient")}>
           <span className="role-card__icon">
@@ -55,9 +36,13 @@ export default function RoleSelectScreen({
           </span>
           <span className="role-card__name">I'm a patient</span>
           <span className="role-card__desc">
-            Follow today's plan, get live cues, and track your streak.
+            {patientResume
+              ? `Pick up as ${patientResume.name} with ${patientResume.therapist}.`
+              : "Follow today's plan, get live cues, and track your streak."}
           </span>
-          <span className="role-card__cta">Continue →</span>
+          <span className="role-card__cta">
+            {patientResume ? `Continue as ${patientResume.name} →` : "Continue →"}
+          </span>
         </button>
 
         <button type="button" className="role-card" onClick={() => onSelectRole("therapist")}>
@@ -68,7 +53,9 @@ export default function RoleSelectScreen({
           <span className="role-card__desc">
             Build the plan, share it with your patient, and review their sessions.
           </span>
-          <span className="role-card__cta">Open studio →</span>
+          <span className="role-card__cta">
+            {therapistResume ? "Continue in studio →" : "Open studio →"}
+          </span>
         </button>
       </div>
 
